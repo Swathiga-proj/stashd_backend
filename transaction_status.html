@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stashd</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" rel="stylesheet">
+  <style>
+    body { font-family: system-ui, sans-serif; }
+    .screen { display: none; }
+    .screen.active { display: block; }
+    .gradient-primary { background: linear-gradient(135deg, #6366f1, #14b8a6); }
+    .pending { background: #fef3c7; color: #92400e; padding: 2px 10px; border-radius: 9999px; font-size: 13px; }
+    .approved { background: #d1fae5; color: #065f46; padding: 2px 10px; border-radius: 9999px; font-size: 13px; }
+    .rejected { background: #fee2e2; color: #b91c1c; padding: 2px 10px; border-radius: 9999px; font-size: 13px; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+  <!-- HOME -->
+  <div id="screen-home" class="screen active max-w-xl mx-auto px-4 py-6">
+    <h1 class="text-3xl font-bold mb-6">Home</h1>
+    <div class="bg-white rounded-3xl p-6 mb-6">
+      <p class="text-gray-500">Total Balance</p>
+      <p class="text-4xl font-bold">₹1,24,500</p>
+    </div>
+    <button onclick="showScreen('screen-activity')" class="w-full bg-indigo-600 text-white py-4 rounded-3xl font-bold">View Activity</button>
+  </div>
+
+  <!-- ACTIVITY -->
+  <div id="screen-activity" class="screen max-w-xl mx-auto px-4 py-6">
+    <h2 class="text-2xl font-bold mb-6">Activity</h2>
+    <div id="activity-list" class="space-y-4"></div>
+  </div>
+
+  <!-- TRANSACTION DETAIL -->
+  <div id="screen-detail" class="screen max-w-xl mx-auto px-4 py-6">
+    <button onclick="showScreen('screen-activity')" class="mb-6 text-gray-500">← Back</button>
+    <div class="bg-white rounded-3xl p-6">
+      <div id="detail-amount" class="text-5xl font-bold text-center mb-6"></div>
+      <div id="detail-info" class="space-y-4"></div>
+    </div>
+  </div>
+
+  <script>
+    let transactions = [
+      { id: 1, title: "Groceries", amount: -4200, status: "approved", date: "Today" },
+      { id: 2, title: "Medical Bill", amount: -1850, status: "pending", date: "Yesterday" },
+      { id: 3, title: "Salary", amount: 25000, status: "approved", date: "2 days ago" }
+    ];
+
+    function renderActivity() {
+      const container = document.getElementById('activity-list');
+      container.innerHTML = transactions.map(t => `
+        <div onclick="showDetail(${t.id})" class="bg-white p-5 rounded-3xl flex gap-4 cursor-pointer hover:shadow-md">
+          <div class="flex-1">
+            <p class="font-semibold">${t.title}</p>
+            <p class="text-sm text-gray-500">${t.date}</p>
+          </div>
+          <div class="text-right">
+            <p class="font-bold text-red-600">-₹${Math.abs(t.amount)}</p>
+            <span class="${t.status} text-xs">${t.status.toUpperCase()}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function showDetail(id) {
+      const t = transactions.find(x => x.id === id);
+      document.getElementById('detail-amount').textContent = `-₹${Math.abs(t.amount)}`;
+      document.getElementById('detail-info').innerHTML = `
+        <p><strong>Status:</strong> ${t.status}</p>
+        <p><strong>Date:</strong> ${t.date}</p>
+      `;
+      showScreen('screen-detail');
+    }
+
+    function showScreen(id) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      renderActivity();
+      console.log("Stashd loaded successfully");
+    });
+  </script>
+</body>
+</html>

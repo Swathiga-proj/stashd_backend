@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stashd – Shared Money, Clearly Owned</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" rel="stylesheet">
+  <style>
+    * { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
+    .screen { display: none; }
+    .screen.active { display: block; }
+    .gradient-primary { background: linear-gradient(135deg, #6366f1, #14b8a6); }
+    .card-hover { transition: all 0.3s; }
+    .card-hover:hover { transform: translateY(-4px); }
+    .pending { background: #fef3c7; color: #92400e; }
+    .toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); background: #1e1b4b; color: white; padding: 14px 28px; border-radius: 9999px; z-index: 9999; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen pb-24">
+
+  <!-- SPLASH -->
+  <div id="screen-splash" class="screen active max-w-xl mx-auto px-4 pt-20 text-center">
+    <div class="flex justify-center mb-8">
+      <div class="w-24 h-24 gradient-primary rounded-3xl flex items-center justify-center text-white text-6xl font-bold">S</div>
+    </div>
+    <h1 class="text-5xl font-extrabold">Stashd</h1>
+    <p class="text-xl text-gray-600 mt-3">Shared money, Clearly owned</p>
+    <button onclick="showScreen('screen-login')" class="mt-16 w-full gradient-primary text-white py-5 rounded-3xl font-bold text-lg">Get Started</button>
+  </div>
+
+  <!-- LOGIN -->
+  <div id="screen-login" class="screen max-w-xl mx-auto px-4 pt-8">
+    <div class="flex items-center gap-3 mb-8">
+      <button onclick="showScreen('screen-splash')" class="text-gray-500"><i class="fas fa-arrow-left text-2xl"></i></button>
+      <h2 class="text-2xl font-extrabold">Sign In</h2>
+    </div>
+    <div class="space-y-6">
+      <div>
+        <p class="text-gray-500 mb-2">Phone Number</p>
+        <input type="tel" id="login-phone" value="+91 98765 43210" class="w-full border border-gray-200 rounded-2xl px-4 py-4 text-lg">
+      </div>
+      <div>
+        <p class="text-gray-500 mb-2">Password</p>
+        <input type="password" id="login-password" value="demo123" class="w-full border border-gray-200 rounded-2xl px-4 py-4 text-lg">
+      </div>
+      <button onclick="loginSuccess()" class="w-full gradient-primary text-white py-5 rounded-3xl font-bold text-lg">Sign In</button>
+      <button onclick="showScreen('screen-signup')" class="w-full border border-gray-300 py-5 rounded-3xl font-bold text-lg">Sign Up</button>
+    </div>
+  </div>
+
+  <!-- SIGNUP -->
+  <div id="screen-signup" class="screen max-w-xl mx-auto px-4 pt-8">
+    <div class="flex items-center gap-3 mb-8">
+      <button onclick="showScreen('screen-login')" class="text-gray-500"><i class="fas fa-arrow-left text-2xl"></i></button>
+      <h2 class="text-2xl font-extrabold">Create Account</h2>
+    </div>
+    <div class="space-y-6">
+      <div>
+        <p class="text-gray-500 mb-2">Phone Number</p>
+        <input type="tel" id="signup-phone" value="+91 98765 43210" class="w-full border border-gray-200 rounded-2xl px-4 py-4 text-lg">
+      </div>
+      <div>
+        <p class="text-gray-500 mb-2">Create Password</p>
+        <input type="password" id="signup-password" value="demo123" class="w-full border border-gray-200 rounded-2xl px-4 py-4 text-lg">
+      </div>
+      <div>
+        <p class="text-gray-500 mb-2">Confirm Password</p>
+        <input type="password" id="signup-confirm" value="demo123" class="w-full border border-gray-200 rounded-2xl px-4 py-4 text-lg">
+      </div>
+      <button onclick="signupSuccess()" class="w-full gradient-primary text-white py-5 rounded-3xl font-bold text-lg">Continue</button>
+    </div>
+  </div>
+
+  <!-- CREATE POOL -->
+  <div id="screen-create-pool" class="screen max-w-xl mx-auto px-4 pt-8">
+    <div class="flex items-center gap-3 mb-8">
+      <button onclick="showScreen('screen-signup')" class="text-gray-500"><i class="fas fa-arrow-left text-2xl"></i></button>
+      <h2 class="text-2xl font-extrabold">Create Pool</h2>
+    </div>
+    <input type="text" id="pool-name" value="Family Stash" class="w-full border border-gray-200 rounded-2xl px-4 py-4 text-xl font-semibold mb-8">
+    <button onclick="createPoolSuccess()" class="w-full gradient-primary text-white py-5 rounded-3xl font-bold text-lg">Create Pool</button>
+  </div>
+
+  <!-- ADD MEMBERS -->
+  <div id="screen-add-members" class="screen max-w-xl mx-auto px-4 pt-8">
+    <div class="flex items-center gap-3 mb-6">
+      <button onclick="showScreen('screen-create-pool')" class="text-gray-500"><i class="fas fa-arrow-left text-2xl"></i></button>
+      <h2 class="text-2xl font-extrabold">Add Members</h2>
+    </div>
+    <div id="member-list" class="space-y-3 mb-24"></div>
+    <button onclick="showAddMemberPopup()" class="fixed bottom-24 right-6 w-14 h-14 gradient-primary text-white rounded-2xl flex items-center justify-center shadow-xl text-3xl z-50">
+      <i class="fas fa-plus"></i>
+    </button>
+  </div>
+
+  <!-- ADD MEMBER POPUP -->
+  <div id="add-member-popup" class="hidden fixed inset-0 bg-black/70 flex items-end z-[100]">
+    <div class="bg-white w-full rounded-t-3xl p-6">
+      <h3 class="text-xl font-bold mb-6">Add New Member</h3>
+      <input type="text" id="new-member-name" placeholder="Full Name" class="w-full border border-gray-200 rounded-2xl px-5 py-4 mb-4">
+      <input type="tel" id="new-member-phone" placeholder="Phone Number" class="w-full border border-gray-200 rounded-2xl px-5 py-4 mb-4">
+      <select id="new-member-role" class="w-full border border-gray-200 rounded-2xl px-5 py-4 mb-6">
+        <option value="member">Member</option>
+        <option value="viewer">Viewer</option>
+      </select>
+      <button onclick="addNewMember()" class="w-full gradient-primary text-white py-5 rounded-3xl font-bold">Add Member</button>
+    </div>
+  </div>
+
+  <!-- ACTIVITY SCREEN -->
+  <div id="screen-activity" class="screen max-w-xl mx-auto px-4 pt-5">
+    <h2 class="text-2xl font-bold mb-6">Activity</h2>
+    <div id="activity-list" class="space-y-4"></div>
+  </div>
+
+  <script>
+    let poolMembers = [{ name: "Priya (You)", role: "Admin", phone: "+91 98765 43210" }];
+    let transactions = [
+      { id: 1, title: "Groceries", amount: -4200, status: "approved", date: "Today" },
+      { id: 2, title: "Medical Bill", amount: -1850, status: "pending", date: "Yesterday" }
+    ];
+
+    function showScreen(screenId) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(screenId).classList.add('active');
+      if (screenId === 'screen-add-members') renderMemberList();
+    }
+
+    function renderMemberList() {
+      const container = document.getElementById('member-list');
+      container.innerHTML = poolMembers.map(m => `
+        <div class="bg-white rounded-3xl p-5 flex items-center gap-4">
+          <div class="w-12 h-12 bg-indigo-100 rounded-2xl flex items-center justify-center text-2xl">👤</div>
+          <div class="flex-1">
+            <p class="font-semibold">${m.name}</p>
+            <p class="text-xs text-gray-400">${m.phone}</p>
+          </div>
+          <span class="text-xs px-3 py-1 rounded-full ${m.role === 'Admin' ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-600'}">${m.role}</span>
+        </div>
+      `).join('');
+    }
+
+    function showAddMemberPopup() {
+      document.getElementById('add-member-popup').classList.remove('hidden');
+    }
+
+    function addNewMember() {
+      const name = document.getElementById('new-member-name').value.trim();
+      const phone = document.getElementById('new-member-phone').value.trim();
+      const role = document.getElementById('new-member-role').value;
+      if (!name) return alert("Name is required");
+      poolMembers.push({ name, role: role.charAt(0).toUpperCase() + role.slice(1), phone });
+      renderMemberList();
+      hideAddMemberPopup();
+      showToast("Member added successfully");
+    }
+
+    function hideAddMemberPopup() {
+      document.getElementById('add-member-popup').classList.add('hidden');
+    }
+
+    function loginSuccess() { showToast("✅ Signed In"); showScreen('screen-home'); }
+    function signupSuccess() { showToast("✅ Account Created"); showScreen('screen-create-pool'); }
+    function createPoolSuccess() { showToast("✅ Pool Created"); showScreen('screen-add-members'); }
+
+    function showToast(msg) {
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.textContent = msg;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 2500);
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      renderMemberList();
+    });
+  </script>
+</body>
+</html>

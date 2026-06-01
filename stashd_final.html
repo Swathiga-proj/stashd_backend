@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stashd – Shared Money, Clearly Owned</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
+    .screen { display: none; }
+    .screen.active { display: block; }
+    .nav-item { transition: all 0.2s; color: #9ca3af; }
+    .nav-item.active { color: #4f46e5; }
+    .amount-input { font-size: 2.8rem; font-weight: 800; }
+    .card-hover { transition: all 0.25s; }
+    .card-hover:hover { transform: translateY(-3px); box-shadow: 0 16px 32px -8px rgba(0,0,0,0.12); }
+    .clickable { cursor: pointer; }
+    .toggle-active { background-color: #4f46e5 !important; color: white !important; }
+    .filter-chip { transition: all 0.15s; cursor: pointer; }
+    .filter-chip.active { background-color: #4f46e5; color: white; }
+    .category-chip { transition: all 0.15s; cursor: pointer; }
+    .category-chip.selected { background-color: #fde68a; color: #92400e; font-weight: 600; }
+    .member-btn { transition: all 0.15s; }
+    .method-btn { transition: all 0.15s; }
+    .method-btn.selected { background-color: #e0f2fe; color: #0369a1; font-weight: 600; }
+    input[type=date]::-webkit-calendar-picker-indicator { opacity: 0.5; cursor: pointer; }
+    .progress-bar { transition: width 0.6s ease; }
+    .toast {
+      position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
+      background: #1e1b4b; color: white; padding: 12px 24px; border-radius: 100px;
+      font-size: 14px; font-weight: 600; z-index: 9999; white-space: nowrap;
+      animation: toastIn 0.3s ease, toastOut 0.3s ease 2.2s forwards;
+    }
+    @keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(12px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+    @keyframes toastOut { to { opacity: 0; transform: translateX(-50%) translateY(12px); } }
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+      display: flex; align-items: center; justify-content: center; z-index: 100;
+      padding: 1rem;
+    }
+    .settle-badge-in { background: #d1fae5; color: #065f46; }
+    .settle-badge-out { background: #ffedd5; color: #9a3412; }
+    select { -webkit-appearance: none; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%236b7280'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z' clip-rule='evenodd'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; background-size: 20px; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen pb-24">
+
+  <!-- ==================== HEADER ==================== -->
+  <header class="bg-white shadow-sm sticky top-0 z-50 border-b border-gray-100">
+    <div class="max-w-xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-bold text-xl shadow-md shadow-indigo-200">S</div>
+        <div>
+          <h1 class="text-xl font-extrabold tracking-tight text-gray-900">Stashd</h1>
+          <p class="text-xs text-gray-400 -mt-0.5">Family Stash • May 2026</p>
+        </div>
+      </div>
+      <button onclick="showScreen('screen-settle')" class="bg-indigo-50 text-indigo-600 text-xs font-semibold px-3 py-2 rounded-xl hover:bg-indigo-100 transition">
+        <i class="fas fa-balance-scale mr-1"></i> Settle Up
+      </button>
+    </div>
+  </header>
+
+  <!-- ==================== HOME SCREEN ==================== -->
+  <div id="screen-home" class="screen active max-w-xl mx-auto px-4 pt-5">
+
+    <!-- Total Balance Card -->
+    <div onclick="showPoolSummaryModal()" class="bg-gradient-to-br from-indigo-600 via-indigo-600 to-blue-700 text-white rounded-3xl p-6 mb-6 shadow-xl shadow-indigo-200/60 clickable relative overflow-hidden">
+      <div class="absolute -top-8 -right-8 w-36 h-36 bg-white/5 rounded-full"></div>
+      <div class="absolute -bottom-6 -left-4 w-24 h-24 bg-white/5 rounded-full"></div>
+      <p class="text-indigo-200 text-sm font-medium">Total Pool Balance</p>
+      <h2 id="total-balance-display" class="text-5xl font-extrabold mt-1 tracking-tight">₹1,24,500</h2>
+      <p class="text-green-300 flex items-center gap-1.5 mt-3 text-sm font-medium">
+        <i class="fas fa-arrow-trend-up"></i> +₹18,450 this month
+      </p>
+      <p class="text-indigo-200/60 text-xs mt-3">Tap for summary →</p>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="grid grid-cols-3 gap-3 mb-7">
+      <div onclick="showScreenWithFilter('screen-activity','income')" class="bg-white p-4 rounded-2xl text-center shadow-sm card-hover clickable border border-gray-100">
+        <p class="text-emerald-600 text-xs font-semibold uppercase tracking-wide">Income</p>
+        <p id="stat-income" class="text-xl font-extrabold mt-1">₹67,500</p>
+      </div>
+      <div onclick="showScreenWithFilter('screen-activity','expense')" class="bg-white p-4 rounded-2xl text-center shadow-sm card-hover clickable border border-gray-100">
+        <p class="text-rose-600 text-xs font-semibold uppercase tracking-wide">Expense</p>
+        <p id="stat-expense" class="text-xl font-extrabold mt-1">₹32,000</p>
+      </div>
+      <div onclick="showScreen('screen-loans')" class="bg-white p-4 rounded-2xl text-center shadow-sm card-hover clickable border border-gray-100">
+        <p class="text-amber-600 text-xs font-semibold uppercase tracking-wide">Loans Out</p>
+        <p id="stat-loans" class="text-xl font-extrabold mt-1">₹23,000</p>
+      </div>
+    </div>
+
+    <!-- Member Pots -->
+    <h3 class="font-bold text-gray-800 mb-3">Member Pots</h3>
+    <div class="space-y-3 mb-7">
+      <div onclick="showMemberDetail('Priya')" class="bg-white rounded-3xl p-5 flex items-center gap-4 shadow-sm card-hover clickable border border-blue-50">
+        <div class="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center text-2xl">👩</div>
+        <div class="flex-1">
+          <p class="font-semibold text-gray-800">Priya (You)</p>
+          <p class="text-xs text-gray-400">38% of pool</p>
+        </div>
+        <p id="priya-balance" class="text-2xl font-extrabold text-blue-600">₹48,000</p>
+      </div>
+      <div onclick="showMemberDetail('FIL')" class="bg-white rounded-3xl p-5 flex items-center gap-4 shadow-sm card-hover clickable border border-green-50">
+        <div class="w-12 h-12 bg-green-100 rounded-2xl flex items-center justify-center text-2xl">👴</div>
+        <div class="flex-1">
+          <p class="font-semibold text-gray-800">Father-in-law</p>
+          <p class="text-xs text-gray-400">42% of pool</p>
+        </div>
+        <p id="fil-balance" class="text-2xl font-extrabold text-green-600">₹52,000</p>
+      </div>
+    </div>
+
+    <!-- Active Loans Preview -->
+    <div class="flex justify-between items-center mb-3">
+      <h3 class="font-bold text-gray-800">Active Loans</h3>
+      <button onclick="showScreen('screen-loans')" class="text-indigo-600 text-sm font-semibold">View all →</button>
+    </div>
+    <div onclick="showLoanDetail()" class="bg-white rounded-3xl p-5 shadow-sm card-hover clickable border border-amber-50 mb-7">
+      <div class="flex justify-between items-start">
+        <div>
+          <p class="font-semibold text-gray-800">Bike Loan – Husband</p>
+          <p class="text-xs text-gray-400 mt-0.5">Given on Apr 3, 2026</p>
+        </div>
+        <div class="text-right">
+          <p id="home-loan-outstanding" class="font-extrabold text-orange-600 text-lg">₹12,000</p>
+          <p class="text-xs text-gray-400">outstanding</p>
+        </div>
+      </div>
+      <div class="h-2 bg-gray-100 rounded-full mt-4 overflow-hidden">
+        <div id="home-loan-bar" class="h-2 bg-orange-400 rounded-full progress-bar" style="width:40%"></div>
+      </div>
+      <p id="home-loan-info" class="text-xs text-gray-400 mt-1.5">₹8,000 repaid of ₹20,000</p>
+    </div>
+
+    <!-- Recent Activity Preview -->
+    <div class="flex justify-between items-center mb-3">
+      <h3 class="font-bold text-gray-800">Recent Activity</h3>
+      <button onclick="showScreen('screen-activity')" class="text-indigo-600 text-sm font-semibold">View all →</button>
+    </div>
+    <div id="home-activity-preview" class="space-y-3"></div>
+  </div>
+
+  <!-- ==================== MEMBER DETAIL SCREEN ==================== -->
+  <div id="screen-member-detail" class="screen max-w-xl mx-auto px-4 pt-5">
+    <div class="flex items-center gap-3 mb-6">
+      <button onclick="showScreen('screen-home')" class="w-10 h-10 flex items-center justify-center bg-white rounded-2xl shadow-sm border border-gray-100">
+        <i class="fas fa-arrow-left text-gray-600"></i>
+      </button>
+      <h2 class="text-2xl font-extrabold" id="member-detail-name">Priya</h2>
+    </div>
+    <div class="bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-3xl p-6 text-center mb-6 shadow-lg shadow-blue-200">
+      <p class="text-blue-100 text-sm">Current Balance</p>
+      <p class="text-5xl font-extrabold mt-2" id="member-detail-balance">₹48,000</p>
+    </div>
+    <h3 class="font-semibold text-gray-700 mb-3">Recent Transactions</h3>
+    <div id="member-detail-txns" class="space-y-3"></div>
+  </div>
+
+  <!-- ==================== ADD TRANSACTION TYPE SCREEN ==================== -->
+  <div id="screen-add" class="screen max-w-xl mx-auto px-4 pt-5">
+    <div class="flex items-center gap-3 mb-6">
+      <button onclick="showScreen('screen-home')" class="w-10 h-10 flex items-center justify-center bg-white rounded-2xl shadow-sm border border-gray-100">
+        <i class="fas fa-arrow-left text-gray-600"></i>
+      </button>
+      <h2 class="text-2xl font-extrabold">Add Transaction</h2>
+    </div>
+    <p class="text-gray-500 text-center mb-6">What happened?</p>
+    <div class="grid grid-cols-2 gap-4">
+      <div onclick="showForm('moneyin')" class="bg-emerald-50 hover:bg-emerald-100 p-6 rounded-3xl cursor-pointer card-hover text-center border border-emerald-100 transition">
+        <i class="fas fa-arrow-down text-4xl text-emerald-600 mb-4 block"></i>
+        <p class="font-bold text-gray-800">Money In</p>
+        <p class="text-xs text-gray-500 mt-1">Salary, Gift, Repayment</p>
+      </div>
+      <div onclick="showForm('expense')" class="bg-rose-50 hover:bg-rose-100 p-6 rounded-3xl cursor-pointer card-hover text-center border border-rose-100 transition">
+        <i class="fas fa-arrow-up text-4xl text-rose-600 mb-4 block"></i>
+        <p class="font-bold text-gray-800">Expense</p>
+        <p class="text-xs text-gray-500 mt-1">Groceries, Bills, etc.</p>
+      </div>
+      <div onclick="showForm('loan')" class="bg-amber-50 hover:bg-amber-100 p-6 rounded-3xl cursor-pointer card-hover text-center border border-amber-100 transition">
+        <i class="fas fa-hand-holding-dollar text-4xl text-amber-600 mb-4 block"></i>
+        <p class="font-bold text-gray-800">Give Loan</p>
+        <p class="text-xs text-gray-500 mt-1">Lend from pot</p>
+      </div>
+      <div onclick="showForm('repayment')" class="bg-sky-50 hover:bg-sky-100 p-6 rounded-3xl cursor-pointer card-hover text-center border border-sky-100 transition">
+        <i class="fas fa-sync text-4xl text-sky-600 mb-4 block"></i>
+        <p class="font-bold text-gray-800">Repayment</p>
+        <p class="text-xs text-gray-500 mt-1">Received back</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MONEY IN FORM ==================== -->
+  <div id="form-moneyin" class="screen max-w-xl mx-auto px-4 pt-5">
+    <div class="flex items-center gap-3 mb-6">
+      <button onclick="backToType()" class="w-10 h-10 flex items-center justify-center bg-white rounded-2xl shadow-sm border border-gray-100">
+        <i class="fas fa-arrow-left text-gray-600"></i>
+      </button>
+      <h2 class="text-2xl font-extrabold text-emerald-700">Money In</h2>
+    </div>
+    <div class="text-center mb-2">
+      <input type="text" id="amount-moneyin" placeholder="₹0" inputmode="numeric"
+             class="amount-input w-full text-center bg-transparent focus:outline-none border-b-2 border-gray-200 focus:border-emerald-400 py-3 text-5xl transition-colors">
+    </div>
+    <div class="flex gap-2 flex-wrap mt-3 justify-center">
+      <span onclick="quickAmount('moneyin','5000')" class="bg-gray-100 hover:bg-emerald-100 px-4 py-2 rounded-2xl text-sm cursor-pointer transition font-medium">₹5k</span>
+      <span onclick="quickAmount('moneyin','10000')" class="bg-gray-100 hover:bg-emerald-100 px-4 py-2 rounded-2xl text-sm cursor-pointer transition font-medium">₹10k</span>
+      <span onclick="quickAmount('moneyin','15000')" class="bg-gray-100 hover:bg-emerald-100 px-4 py-2 rounded-2xl text-sm cursor-pointer transition font-medium">₹15k</span>
+      <span onclick="quickAmount('moneyin','25000')" class="bg-gray-100 hover:bg-emerald-100 px-4 py-2 rounded-2xl text-sm cursor-pointer transition font-medium">₹25k</span>
+    </div>
+    <div class="mt-7 space-y-5">
+      <div>
+        <p class="text-gray-500 text-sm font-medium mb-2">Belongs to</p>
+        <div class="flex gap-3">
+          <button id="mi-btn-priya" onclick="selectMember('mi','priya')" class="member-btn flex-1 bg-blue-100 text-blue-700 py-3 rounded-2xl font-semibold">👩 Priya</button>
+          <button id="mi-btn-fil" onclick="selectMember('mi','fil')" class="member-btn flex-1 bg-gray-100 text-gray-600 py-3 rounded-2xl font-semibold">👴 FIL</button>
+        </div>
+      </div>
+      <div>
+        <p class="text-gray-500 text-sm font-medium mb-2">Date</p>
+        <input type="date" id="date-moneyin" class="w-full border border-gray-200 rounded-2xl px-4 py-3 focus:outline-none focus:border-emerald-400 bg-white transition">
+      </div>
+      <div>
+        <p class="text-gray-500 text-sm font-medium mb-2">Notes</p>
+        <textarea id="notes-moneyin" placeholder="Salary for May / Gift from Uncle…" class="w-full border border-gray-200 rounded-2xl px-4 py-3 h-20 focus:outline-none focus:border-emerald-400 bg-white transition resize-none"></textarea>
+      </div>
+      <button onclick="submitTransaction('Money In','moneyin','emerald')" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-5 rounded-3xl font-bold text-lg transition shadow-lg shadow-emerald-200">Add to Pool</button>
+    </div>
+  </div>
+
+  <!-- ==================== EXPENSE FORM ==================== -->
+  <div id="form-expense" class="screen max-w-xl mx-auto px-4 pt-5">
+    <div class="flex items-center gap-3 mb-6">
+      <button onclick="backToType()" class="w-10 h-10 flex items-center justify-center bg-white rounded-2xl shadow-sm border border-gray-100">
+        <i class="fas fa-arrow-left text-gray-600"></i>
+      </button>
+      <h2 class="text-2xl font-extrabold text-rose-700">Expense</h2>
+    </div>
+    <div class="text-center mb-2">
+      <input type="text" id="amount-expense" placeholder="₹0" inputmode="numeric"
+             class="amount-input w-full text-center bg-transparent focus:outline-none border-b-2 border-gray-200 focus:border-rose-400 py-3 text-5xl transition-colors">
+    </div>
+    <div class="flex gap-2 flex-wrap mt-3 justify-center">
+      <span onclick="quickAmount('expense','500')" class="bg-gray-100 hover:bg-rose-100 px-4 py-2 rounded-2xl text-sm cursor-pointer transition font-medium">₹500</span>
+      <span onclick="quickAmount('expense','1000')" class="bg-gray-100 hover:bg-rose-100 px-4 py-2 rounded-2xl text-sm cursor-pointer transition font-medium">₹1k</span>
+      <span onclick="quickAmount('expense','2500')" class="bg-gray-100 hover:bg-rose-100 px-4 py-2 rounded-2xl text-sm cursor-pointer transition font-medium">₹2.5k</span>
+      <span onclick="quickAmount('expense','5000')" class="bg-gray-100 hover:bg-rose-100 px-4 py-2 rounded-2xl text-sm cursor-pointer transition font-medium">₹5k</span>
+    </div>
+    <div class="mt-7 space-y-5">
+      <div>
+        <p class="text-gray-500 text-sm font-medium mb-2">Paid by</p>
+        <div class="flex gap-3">
+          <button id="exp-btn-priya" onclick="selectMember('exp','priya')" class="member-btn flex-1 bg-rose-100 text-rose-700 py-3 rounded-2xl font-semibold">👩 Priya</button>
+          <button id="exp-btn-fil" onclick="selectMember('exp','fil')" class="member-btn flex-1 bg-gray-100 text-gray-600 py-3 rounded-2xl font-semibold">👴 FIL</button>
+        </div>
+      </div>
+      <div>
+        <p class="text-gray-500 text-sm font-medium mb-2">Category</p>
+        <div class="grid grid-cols-3 gap-2 text-sm">
+          <span onclick="selectCategory(this)" class="category-chip bg-gray-100 py-3 rounded-2xl text-center">🛒 Groceries</span>
+          <span onclick="selectCategory(this)" class="category-chip bg-gray-100 py-3 rounded-2xl text-center">💡 Bills</span>
+          <span onclick="selectCategory(this)" class="category-chip bg-gray-100 py-3 rounded-2xl text-center">🏥 Medical</span>
+          <span onclick="selectCategory(this)" class="category-chip bg-gray-100 py-3 rounded-2xl text-center">🚗 Transport</span>
+          <span onclick="selectCategory(this)" class="category-chip bg-gray-100 py-3 rounded-2xl text-center">🛍 Shopping</span>
+          <span onclick="selectCategory(this)" class="category-chip bg-gray-100 py-3 rounded-2xl text-center">🏠 Household</span>
+        </div>
+      </div>
+      <!-- Split Toggle -->
+      <div class="flex items-center justify-between bg-gray-50 border border-gray-200 p-4 rounded-2xl">
+        <div>
+          <p class="font-semibold text-gray-800">Split this expense?</p>
+          <p class="text-xs text-gray-400">Distribute among members</p>
+        </div>
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" id="split-toggle" class="sr-only peer" onchange="toggleExpenseSplit()">
+          <div class="w-11 h-6 bg-gray-300 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+        </label>
+      </div>
+      <div>
+        <p class="text-gray-500 text-sm font-medium mb-2">Date</p>
+        <input type="date" id="date-expense" class="w-full border border-gray-200 rounded-2xl px-4 py-3 focus:outline-none focus:border-rose-400 bg-white transition">
+      </div>
+      <div>
+        <p class="text-gray-500 text-sm font-medium mb-2">Notes</p>
+        <textarea id="notes-expense" placeholder="Bigbasket monthly order…" class="w-full border border-gray-200 rounded-2xl px-4 py-3 h-20 focus:outline-none focus:border-rose-400 bg-white transition resize-none"></textarea>
+      </div>
+      <button onclick="handleExpenseSubmit()" class="w-full bg-rose-600 hover:bg-rose-700 text-white py-5 rounded-3xl font-bold text-lg transition shadow-lg shadow-rose-200">Record Expense</button>
+    </div>
+  </div>
+
+  <!-- ==================== EXPENSE SPLIT SCREEN ==================== -->
+  <div id="screen-expense-split" class="screen max-w-xl mx-auto px-4 pt-5">
+    <div class="flex items-center gap-3 mb-6">
+      <button onclick="showForm('expense')" class="w-10 h-10 flex items-center justify-center bg-white rounded-2xl shadow-sm border border-gray-100">
+        <i class="fas fa-arrow-left text-gray-600"></i>
+      </button>
+      <h2 class="text-2xl font-extrabold text-rose-700">Split Expense</h2>
+    </div>
+    <div class="bg-rose-50 border border-rose-100 rounded-3xl p-5 mb-6">
+      <p class="text-rose-600 text-sm font-medium">Total Amount</p>
+      <p id="split-total-display" class="text-4xl font-extrabold text-rose-700">₹4,200</p>
+    </div>
+    <div class="flex gap-2 mb-6 bg-gray-100 p-1 rounded-3xl">
+      <button onclick="setSplitType(0)" id="split-equal-btn" class="flex-1 py-3 rounded-3xl font-semibold text-sm bg-white shadow text-indigo-600">Equal</button>
+      <button onclick="setSplitType(1)" id="split-custom-btn" class="flex-1 py-3 rounded-3xl font-semibold text-sm text-gray-500">Custom</button>
+      <button onclick="setSplitType(2)" id="split-percent-btn" class="flex-1 py-3 rounded-3xl font-semibold text-sm text-gray-500">Percentage</button>
+    </div>
+    <div id="split-members" class="space-y-3 mb-8"></div>
+    <div id="split-validation" class="text-center text-sm font-medium mb-4 hidden"></div>
+    <button onclick="recordSplitExpense()" class="w-full bg-rose-600 hover:bg-rose-700 text-white py-5 rounded-3xl font-bold text-lg shadow-lg shadow-rose-200 transition">Record Split Expense</button>
+  </div>
+
+  <!-- ==================== GIVE LOAN FORM ==================== -->
+  <div id="form-loan" class="screen max-w-xl mx-auto px-4 pt-5">
+    <div class="flex items-center gap-3 mb-6">
+      <button onclick="backToType()" class="w-10 h-10 flex items-center justify-center bg-white rounded-2xl shadow-sm border border-gray-100">
+        <i class="fas fa-arrow-left text-gray-600"></i>
+      </button>
+      <h2 class="text-2xl font-extrabold text-amber-700">Give Loan</h2>
+    </div>
+    <div class="text-center mb-2">
+      <input type="text" id="amount-loan" placeholder="₹0" inputmode="numeric"
+             class="amount-input w-full text-center bg-transparent focus:outline-none border-b-2 border-gray-200 focus:border-amber-400 py-3 text-5xl transition-colors">
+    </div>
+    <div class="flex gap-2 flex-wrap mt-3 justify-center">
+      <span onclick="quickAmount('loan','5000')" class="bg-gray-100 hover:bg-amber-100 px-4 py-2 rounded-2xl text-sm cursor-pointer transition font-medium">₹5k</span>
+      <span onclick="quickAmount('loan','10000')" class="bg-gray-100 hover:bg-amber-100 px-4 py-2 rounded-2xl text-sm cursor-pointer transition font-medium">₹10k</span>
+      <span onclick="quickAmount('loan','20000')" class="bg-gray-100 hover:bg-amber-100 px-4 py-2 rounded-2xl text-sm cursor-pointer transition font-medium">₹20k</span>
+      <span onclick="quickAmount('loan','50000')" class="bg-gray-100 hover:bg-amber-100 px-4 py-2 rounded-2xl text-sm cursor-pointer transition font-medium">₹50k</span>
+    </div>
+    <div class="mt-7 space-y-5">
+      <div>
+        <p class="text-gray-500 text-sm font-medium mb-2">Lent to</p>
+        <select id="loan-to" class="w-full border border-gray-200 rounded-2xl px-4 py-3.5 focus:outline-none focus:border-amber-400 bg-white text-base font-medium transition">
+          <option>Husband</option>
+          <option>Baby Arjun</option>
+          <option>Father-in-law</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div>
+        <p class="text-gray-500 text-sm font-medium mb-2">Date</p>
+        <input type="date" id="date-loan" class="w-full border border-gray-200 rounded-2xl px-4 py-3 focus:outline-none focus:border-amber-400 bg-white transition">
+      </div>
+      <div>
+        <p class="text-gray-500 text-sm font-medium mb-2">Notes</p>
+        <textarea id="notes-loan" placeholder="For bike purchase / Medical emergency…" class="w-full border border-gray-200 rounded-2xl px-4 py-3 h-20 focus:outline-none focus:border-amber-400 bg-white transition resize-none"></textarea>
+      </div>
+      <button onclick="submitTransaction('Loan Given','loan','amber')" class="w-full bg-amber-600 hover:bg-amber-700 text-white py-5 rounded-3xl font-bold text-lg transition shadow-lg shadow-amber-200">Record Loan</button>
+    </div>
+  </div>
+
+  <!-- ==================== REPAYMENT FORM (standalone) ==================== -->
+  <div id="form-repayment" class="screen max-w-xl mx-auto px-4 pt-5">
+    <div class="flex items-center gap-3 mb-6">
+      <button onclick="backToType()" class="w-10 h-10 flex items-center justify-center bg-white rounded-2xl shadow-sm border border-gray-100">
+        <i class="fas fa-arrow-left text-gray-600"></i>
+      </button>
+      <h2 class="text-2xl font-extrabold text-sky-700">Repayment</h2>
+    </div>
+    <div class="text-center mb-2">
+      <input type="text" id="amount-repayment" placeholder="₹0" inputmode="numeric"
+             class="amount-input w-full text-center bg-transparent focus:outline-none border-b-2 border-gray-200 focus:border-sky-400 py-3 text-5xl transition-colors">
+    </div>
+    <div class="mt-7 space-y-5">
+      <div>
+        <p class="text-gray-500 text-sm font-medium mb-2">From</p>
+        <select id="repay-from" class="w-full border border-gray-200 rounded-2xl px-4 py-3.5 focus:outline-none focus:border-sky-400 bg-white text-base font-medium transition">
+          <option>Husband</option>
+          <option>Baby Arjun</option>
+          <option>Father-in-law</option>
+        </select>
+      </div>
+      <div>
+        <p class="text-gray-500 text-sm font-medium mb-2">Payment Method</p>
+        <div class="flex gap-3">
+          <button id="rm-btn-upi" onclick="selectMethod('rm','upi')" class="method-btn selected flex-1 py-3 rounded-2xl font-semibold bg-sky-100 text-sky-700">UPI</button>
+          <button id="rm-btn-cash" onclick="selectMethod('rm','cash')" class="method-btn flex-1 py-3 rounded-2xl font-semibold bg-gray-100 text-gray-600">Cash</button>
+          <button id="rm-btn-bank" onclick="selectMethod('rm','bank')" class="method-btn flex-1 py-3 rounded-2xl font-semibold bg-gray-100 text-gray-600">Bank</button>
+        </div>
+      </div>
+      <div>
+        <p class="text-gray-500 text-sm font-medium mb-2">Date</p>
+        <input type="date" id="date-repayment" class="w-full border border-gray-200 rounded-2xl px-4 py-3 focus:outline-none focus:border-sky-400 bg-white transition">
+      </div>
+      <div>
+        <p class="text-gray-500 text-sm font-medium mb-2">Notes</p>
+        <textarea id="notes-repayment" placeholder="Partial repayment of bike loan…" class="w-full border border-gray-200 rounded-2xl px-4 py-3 h-20 focus:outline-none focus:border-sky-400 bg-white transition resize-none"></textarea>
+      </div>
+      <button onclick="submitTransaction('Repayment','repayment','sky')" class="w-full bg-sky-600 hover:bg-sky-700 text-white py-5 rounded-3xl font-bold text-lg transition shadow-lg shadow-sky-200">Record Repayment</button>
+    </div>
+  </div>
+
+  <!-- ==================== LOANS SCREEN ==================== -->
+  <div id="screen-loans" class="screen max-w-xl mx-auto px-4 pt-5">
+    <div class="flex items-center gap-3 mb-6">
+      <button onclick="showScreen('screen-home')" class="w-10 h-10 flex items-center justify-center bg-white rounded-2xl shadow-sm border border-gray-100">
+        <i class="fas fa-arrow-left text-gray-600"></i>
+      </button>
+      <h2 class="text-2xl font-extrabold">Loans</h2>
+    </div>
+    <div class="flex bg-gray-100 rounded-3xl p-1 mb-6">
+      <button onclick="switchLoanTab(0)" id="tab-given" class="flex-1 py-3 rounded-3xl font-semibold text-sm toggle-active transition">Given</button>
+      <button onclick="switchLoanTab(1)" id="tab-received" class="flex-1 py-3 rounded-3xl font-semibold text-sm text-gray-500 transition">Received</button>
+    </div>
+    <div id="given-loans">
+      <div onclick="showLoanDetail()" class="bg-white rounded-3xl p-6 mb-4 shadow-sm card-hover clickable border border-amber-50">
+        <div class="flex justify-between items-start">
+          <div>
+            <p class="font-bold text-gray-800">Bike Loan – Husband</p>
+            <p class="text-xs text-gray-400 mt-0.5">Apr 3, 2026</p>
+          </div>
+          <span class="bg-orange-100 text-orange-600 text-xs font-semibold px-3 py-1 rounded-full">Active</span>
+        </div>
+        <p id="loan-outstanding-display" class="text-3xl font-extrabold text-orange-600 mt-4">₹12,000</p>
+        <div class="mt-3 h-2.5 bg-gray-100 rounded-full overflow-hidden">
+          <div id="loan-progress-display" class="h-2.5 bg-orange-400 rounded-full progress-bar" style="width:40%"></div>
+        </div>
+        <p id="loan-info-display" class="text-xs text-gray-400 mt-2">₹8,000 repaid of ₹20,000</p>
+      </div>
+    </div>
+    <div id="received-loans" class="hidden">
+      <div class="bg-white rounded-3xl p-8 text-center text-gray-400 border border-dashed border-gray-200">
+        <i class="fas fa-inbox text-3xl mb-2 block"></i>
+        <p class="font-medium">No received loans</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== LOAN DETAIL SCREEN ==================== -->
+  <div id="screen-loan-detail" class="screen max-w-xl mx-auto px-4 pt-5">
+    <div class="flex items-center gap-3 mb-6">
+      <button onclick="showScreen('screen-loans')" class="w-10 h-10 flex items-center justify-center bg-white rounded-2xl shadow-sm border border-gray-100">
+        <i class="fas fa-arrow-left text-gray-600"></i>
+      </button>
+      <h2 class="text-2xl font-extrabold">Bike Loan – Husband</h2>
+    </div>
+    <div class="bg-white rounded-3xl p-6 mb-6 shadow-sm border border-amber-50">
+      <div class="text-center mb-4">
+        <p class="text-gray-400 text-sm">Outstanding Balance</p>
+        <p id="detail-outstanding" class="text-5xl font-extrabold text-orange-600 mt-1">₹12,000</p>
+      </div>
+      <div class="h-3 bg-gray-100 rounded-full overflow-hidden">
+        <div id="detail-progress" class="h-3 bg-orange-400 rounded-full progress-bar" style="width:40%"></div>
+      </div>
+      <p id="detail-repaid-info" class="text-sm text-gray-400 text-center mt-2">₹8,000 repaid of ₹20,000</p>
+    </div>
+    <div class="grid grid-cols-2 gap-3 mb-6">
+      <div class="bg-emerald-50 rounded-2xl p-4 text-center">
+        <p class="text-emerald-600 text-xs font-semibold">Total Given</p>
+        <p class="text-2xl font-extrabold text-emerald-700 mt-1">₹20,000</p>
+      </div>
+      <div class="bg-orange-50 rounded-2xl p-4 text-center">
+        <p class="text-orange-600 text-xs font-semibold">Total Repaid</p>
+        <p id="detail-repaid-amount" class="text-2xl font-extrabold text-orange-700 mt-1">₹8,000</p>
+      </div>
+    </div>
+    <button onclick="showRepaymentForm()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-5 rounded-3xl font-bold text-lg mb-3 transition shadow-lg shadow-emerald-200">
+      <i class="fas fa-plus mr-2"></i> Record Repayment
+    </button>
+    <button onclick="sendReminder()" class="w-full bg-orange-50 hover:bg-orange-100 text-orange-700 py-4 rounded-3xl font-semibold transition">
+      <i class="fas fa-bell mr-2"></i> Send Reminder
+    </button>
+  </div>
+
+  <!-- ==================== REPAYMENT FORM (linked to loan) ==================== -->
+  <div id="form-repayment-loan" class="screen max-w-xl mx-auto px-4 pt-5">
+    <div class="flex items-center gap-3 mb-6">
+      <button onclick="backToLoanDetail()" class="w-10 h-10 flex items-center justify-center bg-white rounded-2xl shadow-sm border border-gray-100">
+        <i class="fas fa-arrow-left text-gray-600"></i>
+      </button>
+      <h2 class="text-2xl font-extrabold text-emerald-700">Record Repayment</h2>
+    </div>
+    <div class="bg-orange-50 border border-orange-100 rounded-2xl px-4 py-3 mb-5 flex justify-between items-center">
+      <p class="text-sm text-orange-600 font-medium">Outstanding balance</p>
+      <p id="repay-outstanding-hint" class="text-orange-700 font-extrabold">₹12,000</p>
+    </div>
+    <div class="text-center mb-2">
+      <input type="text" id="repay-amount" placeholder="₹0" inputmode="numeric"
+             class="amount-input w-full text-center bg-transparent focus:outline-none border-b-2 border-gray-200 focus:border-emerald-400 py-3 text-5xl transition-colors">
+    </div>
+    <div class="flex gap-2 flex-wrap mt-3 justify-center">
+      <span onclick="document.getElementById('repay-amount').value='₹2,000'" class="bg-gray-100 hover:bg-emerald-100 px-4 py-2 rounded-2xl text-sm cursor-pointer transition font-medium">₹2k</span>
+      <span onclick="document.getElementById('repay-amount').value='₹5,000'" class="bg-gray-100 hover:bg-emerald-100 px-4 py-2 rounded-2xl text-sm cursor-pointer transition font-medium">₹5k</span>
+      <span onclick="setFullRepayment()" class="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 px-4 py-2 rounded-2xl text-sm cursor-pointer transition font-semibold">Full</span>
+    </div>
+    <div class="mt-7 space-y-5">
+      <div>
+        <p class="text-gray-500 text-sm font-medium mb-2">Payment Method</p>
+        <div class="flex gap-3">
+          <button id="rl-btn-upi" onclick="selectMethod('rl','upi')" class="method-btn selected flex-1 py-3 rounded-2xl font-semibold bg-sky-100 text-sky-700">UPI</button>
+          <button id="rl-btn-cash" onclick="selectMethod('rl','cash')" class="method-btn flex-1 py-3 rounded-2xl font-semibold bg-gray-100 text-gray-600">Cash</button>
+          <button id="rl-btn-bank" onclick="selectMethod('rl','bank')" class="method-btn flex-1 py-3 rounded-2xl font-semibold bg-gray-100 text-gray-600">Bank</button>
+        </div>
+      </div>
+      <div>
+        <p class="text-gray-500 text-sm font-medium mb-2">Date</p>
+        <input type="date" id="date-repay-loan" class="w-full border border-gray-200 rounded-2xl px-4 py-3 focus:outline-none focus:border-emerald-400 bg-white transition">
+      </div>
+      <div>
+        <p class="text-gray-500 text-sm font-medium mb-2">Notes</p>
+        <textarea id="repay-notes" placeholder="Partial repayment for bike…" class="w-full border border-gray-200 rounded-2xl px-4 py-3 h-20 focus:outline-none focus:border-emerald-400 bg-white transition resize-none"></textarea>
+      </div>
+      <button onclick="submitRepayment()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-5 rounded-3xl font-bold text-lg transition shadow-lg shadow-emerald-200">Record & Link to Loan</button>
+    </div>
+  </div>
+
+  <!-- ==================== ACTIVITY SCREEN ==================== -->
+  <div id="screen-activity" class="screen max-w-xl mx-auto px-4 pt-5">
+    <div class="flex items-center gap-3 mb-5">
+      <button onclick="showScreen('screen-home')" class="w-10 h-10 flex items-center justify-center bg-white rounded-2xl shadow-sm border border-gray-100">
+        <i class="fas fa-arrow-left text-gray-600"></i>
+      </button>
+      <h2 class="text-2xl font-extrabold">Activity</h2>
+    </div>
+    <!-- Filter Chips -->
+    <div class="flex gap-2 mb-5 overflow-x-auto pb-1 scrollbar-hide">
+      <span onclick="filterActivity('all',this)" class="filter-chip active bg-indigo-600 text-white px-4 py-2 rounded-2xl text-sm font-semibold whitespace-nowrap">All</span>
+      <span onclick="filterActivity('income',this)" class="filter-chip bg-white border border-gray-200 px-4 py-2 rounded-2xl text-sm font-medium whitespace-nowrap">Income</span>
+      <span onclick="filterActivity('expense',this)" class="filter-chip bg-white border border-gray-200 px-4 py-2 rounded-2xl text-sm font-medium whitespace-nowrap">Expense</span>
+      <span onclick="filterActivity('loan',this)" class="filter-chip bg-white border border-gray-200 px-4 py-2 rounded-2xl text-sm font-medium whitespace-nowrap">Loans</span>
+      <span onclick="filterActivity('repayment',this)" class="filter-chip bg-white border border-gray-200 px-4 py-2 rounded-2xl text-sm font-medium whitespace-nowrap">Repayments</span>
+    </div>
+    <div id="activity-list" class="space-y-3"></div>
+  </div>
+
+  <!-- ==================== SETTLE UP SCREEN ==================== -->
+  <div id="screen-settle" class="screen max-w-xl mx-auto px-4 pt-5">
+    <div class="flex items-center gap-3 mb-6">
+      <button onclick="showScreen('screen-home')" class="w-10 h-10 flex items-center justify-center bg-white rounded-2xl shadow-sm border border-gray-100">
+        <i class="fas fa-arrow-left text-gray-600"></i>
+      </button>
+      <h2 class="text-2xl font-extrabold">Settle Up</h2>
+    </div>
+    <div class="bg-white rounded-3xl p-6 mb-6 shadow-sm border border-gray-100">
+      <h3 class="font-bold text-gray-800 mb-4">Current Balances</h3>
+      <div id="settle-balance-list" class="space-y-3"></div>
+    </div>
+    <h3 class="font-bold text-gray-800 mb-3">
+      <i class="fas fa-route text-indigo-500 mr-2"></i>Minimal Transactions
+    </h3>
+    <p class="text-xs text-gray-400 mb-4">Fewest payments to balance the pool</p>
+    <div id="settle-suggestions" class="space-y-3 mb-8"></div>
+    <button onclick="markAllSettled()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-5 rounded-3xl font-bold text-lg shadow-lg shadow-emerald-200 transition">
+      <i class="fas fa-check-double mr-2"></i> Mark All as Settled
+    </button>
+  </div>
+
+  <!-- ==================== BOTTOM NAVIGATION ==================== -->
+  <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-40 shadow-xl shadow-gray-900/5">
+    <div class="max-w-xl mx-auto flex justify-around py-2 text-gray-400">
+      <button onclick="showScreen('screen-home')" id="nav-home" class="nav-item active flex flex-col items-center gap-0.5 px-4 py-2 rounded-2xl">
+        <i class="fas fa-home text-xl"></i>
+        <span class="text-xs font-semibold">Home</span>
+      </button>
+      <button onclick="showScreen('screen-add')" id="nav-add" class="nav-item flex flex-col items-center gap-0.5 px-4 py-2 rounded-2xl relative">
+        <div class="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center -mt-6 shadow-lg shadow-indigo-300">
+          <i class="fas fa-plus text-white text-xl"></i>
+        </div>
+      </button>
+      <button onclick="showScreen('screen-loans')" id="nav-loans" class="nav-item flex flex-col items-center gap-0.5 px-4 py-2 rounded-2xl">
+        <i class="fas fa-hand-holding-dollar text-xl"></i>
+        <span class="text-xs font-semibold">Loans</span>
+      </button>
+      <button onclick="showScreen('screen-activity')" id="nav-activity" class="nav-item flex flex-col items-center gap-0.5 px-4 py-2 rounded-2xl">
+        <i class="fas fa-list text-xl"></i>
+        <span class="text-xs font-semibold">Activity</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ==================== JAVASCRIPT ==================== -->
+  <script>
+    // ============================================================
+    // STATE
+    // ============================================================
+    let currentLoan = { total: 20000, repaid: 8000, outstanding: 12000 };
+    let currentFilter = 'all';
+    let splitType = 0;
+    let splitMembers = [
+      { name: "Priya (You)", color: "blue", avatar: "👩", amount: 0 },
+      { name: "Father-in-law", color: "green", avatar: "👴", amount: 0 },
+      { name: "Husband", color: "pink", avatar: "👨", amount: 0 }
+    ];
+    let settleMembers = [
+      { name: "Priya (You)", balance: 48500, color: "blue" },
+      { name: "Father-in-law", balance: 52500, color: "green" },
+      { name: "Husband", balance: 6200, color: "pink" },
+      { name: "Baby Arjun", balance: 18300, color: "amber" }
+    ];
+    let transactions = [
+      { id: 1, type: "income", label: "Money In", amount: 15000, title: "Salary credited – Priya", date: "Today • 10:15 AM", color: "emerald", icon: "💰" },
+      { id: 2, type: "expense", label: "Expense", amount: -2850, title: "Groceries – Bigbasket", date: "Yesterday • 6:45 PM", color: "rose", icon: "🛒" },
+      { id: 3, type: "loan", label: "Loan Given", amount: -20000, title: "Bike Loan – Husband", date: "Apr 3 • 11:00 AM", color: "amber", icon: "🏍" },
+      { id: 4, type: "repayment", label: "Repayment", amount: 8000, title: "Repayment from Husband", date: "Apr 28 • 3:20 PM", color: "sky", icon: "↩️" },
+      { id: 5, type: "income", label: "Money In", amount: 52500, title: "Salary credited – FIL", date: "Apr 1 • 9:00 AM", color: "emerald", icon: "💰" },
+      { id: 6, type: "expense", label: "Expense", amount: -4200, title: "Electricity Bill", date: "Apr 15 • 2:00 PM", color: "rose", icon: "💡" },
+    ];
+
+    // ============================================================
+    // NAVIGATION
+    // ============================================================
+    function showScreen(id) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      const el = document.getElementById(id);
+      if (el) el.classList.add('active');
+
+      // Update nav active state
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      const navMap = { 'screen-home': 'nav-home', 'screen-add': 'nav-add', 'screen-loans': 'nav-loans', 'screen-activity': 'nav-activity' };
+      if (navMap[id]) document.getElementById(navMap[id])?.classList.add('active');
+
+      // Screen-specific initializations
+      if (id === 'screen-home') renderHomePreview();
+      if (id === 'screen-activity') renderActivity(currentFilter);
+      if (id === 'screen-settle') renderSettle();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function showScreenWithFilter(id, filter) {
+      currentFilter = filter;
+      showScreen(id);
+      // Activate the right chip
+      setTimeout(() => {
+        document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+        const chips = { 'income': 1, 'expense': 2, 'loan': 3, 'repayment': 4 };
+        const allChips = document.querySelectorAll('.filter-chip');
+        if (filter === 'all') allChips[0]?.classList.add('active');
+        else if (chips[filter] !== undefined) allChips[chips[filter]]?.classList.add('active');
+      }, 50);
+    }
+
+    function showForm(type) {
+      showScreen(`form-${type}`);
+      // Set today's date
+      const today = new Date().toISOString().split('T')[0];
+      ['date-moneyin','date-expense','date-loan','date-repayment','date-repay-loan'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = today;
+      });
+    }
+
+    function backToType() { showScreen('screen-add'); }
+    function backToLoanDetail() { showScreen('screen-loan-detail'); }
+
+    // ============================================================
+    // MEMBER DETAIL
+    // ============================================================
+    function showMemberDetail(name) {
+      const isFIL = name === 'FIL';
+      document.getElementById('member-detail-name').textContent = isFIL ? 'Father-in-law' : 'Priya (You)';
+      document.getElementById('member-detail-balance').textContent = isFIL ? '₹52,500' : '₹48,500';
+      document.getElementById('member-detail-balance').className = `text-5xl font-extrabold mt-2 ${isFIL ? 'text-green-600' : 'text-blue-600'}`;
+
+      const memberTxns = transactions.filter(t => isFIL
+        ? t.title.includes('FIL')
+        : t.title.includes('Priya')
+      );
+
+      const container = document.getElementById('member-detail-txns');
+      if (memberTxns.length === 0) {
+        container.innerHTML = '<div class="bg-white p-5 rounded-2xl text-center text-gray-400">No transactions yet</div>';
+      } else {
+        container.innerHTML = memberTxns.map(t => `
+          <div class="bg-white p-4 rounded-2xl flex gap-3 items-center border border-gray-100">
+            <div class="text-2xl">${t.icon}</div>
+            <div class="flex-1">
+              <p class="font-semibold text-sm text-gray-800">${t.title}</p>
+              <p class="text-xs text-gray-400">${t.date}</p>
+            </div>
+            <p class="font-bold text-${t.color}-600">${t.amount > 0 ? '+' : ''}₹${Math.abs(t.amount).toLocaleString('en-IN')}</p>
+          </div>
+        `).join('');
+      }
+      showScreen('screen-member-detail');
+    }
+
+    // ============================================================
+    // POOL SUMMARY MODAL
+    // ============================================================
+    function showPoolSummaryModal() {
+      const modal = document.createElement('div');
+      modal.className = 'modal-overlay';
+      modal.innerHTML = `
+        <div class="bg-white rounded-3xl p-7 w-full max-w-sm shadow-2xl">
+          <div class="flex justify-between items-center mb-5">
+            <h3 class="text-xl font-extrabold">Pool Summary</h3>
+            <button onclick="this.closest('.modal-overlay').remove()" class="text-gray-400 hover:text-gray-600 w-8 h-8 flex items-center justify-center bg-gray-100 rounded-xl">✕</button>
+          </div>
+          <div class="space-y-3">
+            <div class="flex justify-between items-center p-4 bg-indigo-50 rounded-2xl">
+              <p class="font-semibold text-indigo-800">Total Balance</p>
+              <p class="font-extrabold text-indigo-600">₹1,24,500</p>
+            </div>
+            <div class="flex justify-between items-center p-4 bg-emerald-50 rounded-2xl">
+              <p class="font-semibold text-emerald-800">Total Income</p>
+              <p class="font-extrabold text-emerald-600">₹67,500</p>
+            </div>
+            <div class="flex justify-between items-center p-4 bg-rose-50 rounded-2xl">
+              <p class="font-semibold text-rose-800">Total Expense</p>
+              <p class="font-extrabold text-rose-600">₹32,000</p>
+            </div>
+            <div class="flex justify-between items-center p-4 bg-amber-50 rounded-2xl">
+              <p class="font-semibold text-amber-800">Outstanding Loans</p>
+              <p class="font-extrabold text-amber-600">₹23,000</p>
+            </div>
+          </div>
+          <button onclick="this.closest('.modal-overlay').remove(); showScreen('screen-settle')"
+                  class="mt-6 w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold transition hover:bg-indigo-700">
+            Settle Up →
+          </button>
+        </div>`;
+      document.body.appendChild(modal);
+    }
+
+    // ============================================================
+    // QUICK AMOUNT
+    // ============================================================
+    function quickAmount(formType, val) {
+      const el = document.getElementById(`amount-${formType}`);
+      if (el) el.value = '₹' + parseInt(val).toLocaleString('en-IN');
+    }
+
+    // ============================================================
+    // MEMBER BUTTON SELECT
+    // ============================================================
+    function selectMember(prefix, who) {
+      const priyaBtn = document.getElementById(`${prefix}-btn-priya`);
+      const filBtn = document.getElementById(`${prefix}-btn-fil`);
+      if (!priyaBtn || !filBtn) return;
+      const colors = { mi: 'blue', exp: 'rose' };
+      const c = colors[prefix] || 'indigo';
+      if (who === 'priya') {
+        priyaBtn.className = `member-btn flex-1 bg-${c}-100 text-${c}-700 py-3 rounded-2xl font-semibold`;
+        filBtn.className = 'member-btn flex-1 bg-gray-100 text-gray-600 py-3 rounded-2xl font-semibold';
+      } else {
+        filBtn.className = `member-btn flex-1 bg-${c}-100 text-${c}-700 py-3 rounded-2xl font-semibold`;
+        priyaBtn.className = 'member-btn flex-1 bg-gray-100 text-gray-600 py-3 rounded-2xl font-semibold';
+      }
+    }
+
+    // ============================================================
+    // CATEGORY SELECT
+    // ============================================================
+    function selectCategory(el) {
+      document.querySelectorAll('.category-chip').forEach(c => c.classList.remove('selected'));
+      el.classList.add('selected');
+    }
+
+    // ============================================================
+    // METHOD SELECT
+    // ============================================================
+    function selectMethod(prefix, method) {
+      ['upi','cash','bank'].forEach(m => {
+        const btn = document.getElementById(`${prefix}-btn-${m}`);
+        if (btn) btn.className = 'method-btn flex-1 py-3 rounded-2xl font-semibold bg-gray-100 text-gray-600';
+      });
+      const sel = document.getElementById(`${prefix}-btn-${method}`);
+      if (sel) sel.className = 'method-btn selected flex-1 py-3 rounded-2xl font-semibold bg-sky-100 text-sky-700';
+    }
+
+    // ============================================================
+    // SUBMIT TRANSACTION
+    // ============================================================
+    function submitTransaction(label, formType, color) {
+      const amountEl = document.getElementById(`amount-${formType}`);
+      const rawAmount = amountEl ? amountEl.value.replace(/[^0-9]/g, '') : '0';
+      const amount = parseInt(rawAmount) || 0;
+
+      if (amount <= 0) {
+        showToast('Please enter an amount');
+        return;
+      }
+
+      const isIncome = formType === 'moneyin' || formType === 'repayment';
+      const icons = { moneyin: '💰', expense: '🛍', loan: '🤝', repayment: '↩️' };
+      const typeMap = { moneyin: 'income', expense: 'expense', loan: 'loan', repayment: 'repayment' };
+
+      const notesEl = document.getElementById(`notes-${formType}`);
+      const notes = notesEl ? notesEl.value : '';
+      const txnTitle = notes || `${label} recorded`;
+
+      const newTxn = {
+        id: Date.now(),
+        type: typeMap[formType] || 'income',
+        label,
+        amount: isIncome ? amount : -amount,
+        title: txnTitle,
+        date: 'Just now',
+        color: color,
+        icon: icons[formType] || '💰'
+      };
+      transactions.unshift(newTxn);
+
+      showSuccessModal(label, `₹${amount.toLocaleString('en-IN')}`, color);
+    }
+
+    function showSuccessModal(label, amount, color) {
+      const modal = document.createElement('div');
+      modal.className = 'modal-overlay';
+      modal.innerHTML = `
+        <div class="bg-white rounded-3xl p-8 text-center w-full max-w-xs shadow-2xl">
+          <div class="w-20 h-20 bg-${color}-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="fas fa-check-circle text-5xl text-${color}-500"></i>
+          </div>
+          <h3 class="text-2xl font-extrabold">Done!</h3>
+          <p class="text-gray-500 mt-1">${label} of <span class="font-bold text-gray-800">${amount}</span> recorded</p>
+          <button onclick="this.closest('.modal-overlay').remove(); showScreen('screen-home')"
+                  class="mt-7 w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-2xl font-bold transition">
+            Back to Home
+          </button>
+          <button onclick="this.closest('.modal-overlay').remove(); showScreen('screen-activity')"
+                  class="mt-2 w-full text-indigo-600 font-semibold py-3 rounded-2xl hover:bg-indigo-50 transition text-sm">
+            View in Activity →
+          </button>
+        </div>`;
+      document.body.appendChild(modal);
+    }
+
+    // ============================================================
+    // EXPENSE SPLIT
+    // ============================================================
+    function toggleExpenseSplit() {
+      const isOn = document.getElementById('split-toggle').checked;
+      if (isOn) {
+        const rawAmt = document.getElementById('amount-expense').value.replace(/[^0-9]/g,'');
+        const total = parseInt(rawAmt) || 4200;
+        splitMembers.forEach(m => m.amount = Math.round(total / splitMembers.length));
+        document.getElementById('split-total-display').textContent = '₹' + total.toLocaleString('en-IN');
+        renderSplitMembers();
+        showScreen('screen-expense-split');
+      }
+    }
+
+    function handleExpenseSubmit() {
+      const splitOn = document.getElementById('split-toggle').checked;
+      if (splitOn) { toggleExpenseSplit(); }
+      else { submitTransaction('Expense','expense','rose'); }
+    }
+
+    function setSplitType(type) {
+      splitType = type;
+      ['split-equal-btn','split-custom-btn','split-percent-btn'].forEach((id, i) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (i === type) {
+          el.className = 'flex-1 py-3 rounded-3xl font-semibold text-sm bg-white shadow text-indigo-600';
+        } else {
+          el.className = 'flex-1 py-3 rounded-3xl font-semibold text-sm text-gray-500';
+        }
+      });
+      const rawAmt = document.getElementById('split-total-display').textContent.replace(/[^0-9]/g,'');
+      const total = parseInt(rawAmt) || 4200;
+      if (type === 0) {
+        splitMembers.forEach(m => m.amount = Math.round(total / splitMembers.length));
+      } else if (type === 2) {
+        splitMembers[0].amount = Math.round(total * 0.5);
+        splitMembers[1].amount = Math.round(total * 0.33);
+        splitMembers[2].amount = Math.round(total * 0.17);
+      }
+      renderSplitMembers();
+    }
+
+    function renderSplitMembers() {
+      const container = document.getElementById('split-members');
+      if (!container) return;
+      container.innerHTML = '';
+      splitMembers.forEach((m, i) => {
+        const div = document.createElement('div');
+        div.className = 'flex items-center justify-between bg-white p-4 rounded-2xl border border-gray-100';
+        div.innerHTML = `
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-${m.color}-100 rounded-2xl flex items-center justify-center text-xl">${m.avatar}</div>
+            <p class="font-semibold text-gray-800">${m.name}</p>
+          </div>
+          <input type="text" value="₹${m.amount.toLocaleString('en-IN')}" inputmode="numeric"
+                 oninput="updateSplitAmount(${i}, this.value)"
+                 class="w-28 text-right font-bold text-gray-800 border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-400 text-sm">
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function updateSplitAmount(idx, val) {
+      splitMembers[idx].amount = parseInt(val.replace(/[^0-9]/g,'')) || 0;
+      validateSplit();
+    }
+
+    function validateSplit() {
+      const rawAmt = document.getElementById('split-total-display').textContent.replace(/[^0-9]/g,'');
+      const total = parseInt(rawAmt) || 0;
+      const splitTotal = splitMembers.reduce((s,m) => s + m.amount, 0);
+      const el = document.getElementById('split-validation');
+      if (Math.abs(total - splitTotal) > 5) {
+        el.textContent = `⚠ Split total ₹${splitTotal.toLocaleString('en-IN')} ≠ ₹${total.toLocaleString('en-IN')}`;
+        el.className = 'text-center text-sm font-medium mb-4 text-orange-500';
+        el.classList.remove('hidden');
+      } else {
+        el.classList.add('hidden');
+      }
+    }
+
+    function recordSplitExpense() {
+      const rawAmt = document.getElementById('split-total-display').textContent.replace(/[^0-9]/g,'');
+      const total = parseInt(rawAmt) || 0;
+      const newTxn = {
+        id: Date.now(), type: 'expense', label: 'Split Expense',
+        amount: -total, title: `Split expense – ${splitMembers.length} members`,
+        date: 'Just now', color: 'rose', icon: '✂️'
+      };
+      transactions.unshift(newTxn);
+      showSuccessModal('Split Expense', '₹' + total.toLocaleString('en-IN'), 'rose');
+    }
+
+    // ============================================================
+    // LOAN FUNCTIONS
+    // ============================================================
+    function switchLoanTab(tab) {
+      document.getElementById('given-loans').classList.toggle('hidden', tab !== 0);
+      document.getElementById('received-loans').classList.toggle('hidden', tab !== 1);
+      document.getElementById('tab-given').classList.toggle('toggle-active', tab === 0);
+      document.getElementById('tab-given').classList.toggle('text-gray-500', tab !== 0);
+      document.getElementById('tab-received').classList.toggle('toggle-active', tab === 1);
+      document.getElementById('tab-received').classList.toggle('text-gray-500', tab !== 1);
+    }
+
+    function showLoanDetail() {
+      updateLoanUI();
+      showScreen('screen-loan-detail');
+    }
+
+    function showRepaymentForm() {
+      document.getElementById('repay-outstanding-hint').textContent = '₹' + currentLoan.outstanding.toLocaleString('en-IN');
+      showScreen('form-repayment-loan');
+    }
+
+    function setFullRepayment() {
+      document.getElementById('repay-amount').value = '₹' + currentLoan.outstanding.toLocaleString('en-IN');
+    }
+
+    function updateLoanUI() {
+      const percent = Math.round((currentLoan.repaid / currentLoan.total) * 100);
+      const fmt = n => '₹' + n.toLocaleString('en-IN');
+
+      // Loans screen
+      const els = {
+        'loan-outstanding-display': fmt(currentLoan.outstanding),
+        'loan-info-display': `${fmt(currentLoan.repaid)} repaid of ${fmt(currentLoan.total)}`,
+        'detail-outstanding': fmt(currentLoan.outstanding),
+        'detail-repaid-info': `${fmt(currentLoan.repaid)} repaid of ${fmt(currentLoan.total)}`,
+        'detail-repaid-amount': fmt(currentLoan.repaid),
+        'home-loan-outstanding': fmt(currentLoan.outstanding),
+        'home-loan-info': `${fmt(currentLoan.repaid)} repaid of ${fmt(currentLoan.total)}`
+      };
+      Object.entries(els).forEach(([id, val]) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val;
+      });
+
+      ['loan-progress-display','detail-progress','home-loan-bar'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.width = `${percent}%`;
+      });
+    }
+
+    function submitRepayment() {
+      const rawVal = document.getElementById('repay-amount').value.replace(/[^0-9]/g,'');
+      const amount = parseInt(rawVal) || 0;
+
+      if (amount <= 0) { showToast('Please enter an amount'); return; }
+      if (amount > currentLoan.outstanding) {
+        showToast(`Max repayment is ₹${currentLoan.outstanding.toLocaleString('en-IN')}`);
+        return;
+      }
+
+      currentLoan.repaid += amount;
+      currentLoan.outstanding = Math.max(0, currentLoan.total - currentLoan.repaid);
+      updateLoanUI();
+
+      const newTxn = {
+        id: Date.now(), type: 'repayment', label: 'Repayment',
+        amount: amount, title: 'Repayment from Husband',
+        date: 'Just now', color: 'sky', icon: '↩️'
+      };
+      transactions.unshift(newTxn);
+      renderHomePreview();
+
+      if (currentLoan.outstanding === 0) {
+        showToast('🎉 Loan fully repaid!');
+      }
+
+      showSuccessModal('Repayment', '₹' + amount.toLocaleString('en-IN'), 'emerald');
+    }
+
+    function sendReminder() {
+      showToast('✅ Reminder sent to Husband via WhatsApp!');
+    }
+
+    // ============================================================
+    // ACTIVITY
+    // ============================================================
+    const typeIconMap = { income: '💰', expense: '🛒', loan: '🤝', repayment: '↩️' };
+    const typeColorMap = { income: 'emerald', expense: 'rose', loan: 'amber', repayment: 'sky' };
+    const typeLabelMap = { income: 'Money In', expense: 'Expense', loan: 'Loan Given', repayment: 'Repayment' };
+
+    function renderActivity(filter = 'all') {
+      currentFilter = filter;
+      const container = document.getElementById('activity-list');
+      if (!container) return;
+
+      const filtered = filter === 'all' ? transactions : transactions.filter(t => t.type === filter);
+
+      if (filtered.length === 0) {
+        container.innerHTML = `<div class="bg-white p-8 rounded-3xl text-center text-gray-400 border border-dashed border-gray-200">
+          <i class="fas fa-inbox text-3xl mb-2 block"></i><p class="font-medium">No ${filter} transactions yet</p></div>`;
+        return;
+      }
+
+      container.innerHTML = filtered.map(t => {
+        const isPos = t.amount >= 0;
+        const colorClass = isPos ? 'emerald' : 'rose';
+        const amtStr = `${isPos ? '+' : ''}₹${Math.abs(t.amount).toLocaleString('en-IN')}`;
+        return `
+          <div class="bg-white p-4 rounded-2xl flex gap-3 items-center card-hover border border-gray-100">
+            <div class="w-11 h-11 bg-${t.color || colorClass}-100 rounded-2xl flex items-center justify-center text-xl flex-shrink-0">${t.icon || '💰'}</div>
+            <div class="flex-1 min-w-0">
+              <p class="font-semibold text-gray-800 truncate">${t.title}</p>
+              <p class="text-xs text-gray-400 mt-0.5">${t.date}</p>
+            </div>
+            <div class="text-right flex-shrink-0">
+              <p class="font-extrabold text-${colorClass}-600">${amtStr}</p>
+              <p class="text-xs text-gray-400">${t.label || typeLabelMap[t.type] || ''}</p>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function filterActivity(filter, el) {
+      document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+      if (el) el.classList.add('active');
+      renderActivity(filter);
+    }
+
+    function renderHomePreview() {
+      const preview = document.getElementById('home-activity-preview');
+      if (!preview) return;
+      const recent = transactions.slice(0, 3);
+      preview.innerHTML = recent.map(t => {
+        const isPos = t.amount >= 0;
+        return `
+          <div class="bg-white p-4 rounded-2xl flex gap-3 items-center card-hover border border-gray-100 clickable" onclick="showScreen('screen-activity')">
+            <div class="w-10 h-10 bg-${t.color}-100 rounded-xl flex items-center justify-center text-lg flex-shrink-0">${t.icon}</div>
+            <div class="flex-1 min-w-0">
+              <p class="font-semibold text-sm text-gray-800 truncate">${t.title}</p>
+              <p class="text-xs text-gray-400">${t.date}</p>
+            </div>
+            <p class="font-bold text-sm text-${isPos ? 'emerald' : 'rose'}-600 flex-shrink-0">
+              ${isPos ? '+' : ''}₹${Math.abs(t.amount).toLocaleString('en-IN')}
+            </p>
+          </div>`;
+      }).join('');
+    }
+
+    // ============================================================
+    // SETTLE UP
+    // ============================================================
+    function renderSettle() {
+      const total = settleMembers.reduce((s, m) => s + m.balance, 0);
+      const avg = Math.round(total / settleMembers.length);
+
+      // Render balance list
+      const balanceList = document.getElementById('settle-balance-list');
+      balanceList.innerHTML = settleMembers.map(m => {
+        const diff = Math.round(m.balance - avg);
+        const isPos = diff >= 0;
+        return `
+          <div class="flex justify-between items-center p-3 rounded-2xl ${isPos ? 'bg-emerald-50' : 'bg-orange-50'}">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 bg-${m.color}-100 rounded-xl flex items-center justify-center text-lg">👤</div>
+              <p class="font-semibold text-sm text-gray-800">${m.name}</p>
+            </div>
+            <div class="text-right">
+              <p class="font-extrabold ${isPos ? 'text-emerald-600' : 'text-orange-600'}">
+                ${isPos ? '+' : ''}₹${Math.abs(diff).toLocaleString('en-IN')}
+              </p>
+              <p class="text-xs ${isPos ? 'text-emerald-500' : 'text-orange-500'}">${isPos ? 'to receive' : 'to pay'}</p>
+            </div>
+          </div>`;
+      }).join('');
+
+      // Calculate minimal transactions
+      const txns = calculateMinimalTxns();
+      const suggestions = document.getElementById('settle-suggestions');
+      if (txns.length === 0) {
+        suggestions.innerHTML = '<div class="bg-white p-6 rounded-3xl text-center text-emerald-600 font-semibold border border-emerald-100"><i class="fas fa-check-circle mr-2"></i>Pool is already balanced!</div>';
+        return;
+      }
+      suggestions.innerHTML = txns.map(t => `
+        <div class="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center gap-4">
+          <div class="flex-1">
+            <p class="font-semibold text-gray-800">${t.from}</p>
+            <p class="text-xs text-gray-400">pays</p>
+          </div>
+          <p class="text-2xl font-extrabold text-emerald-600">₹${t.amount.toLocaleString('en-IN')}</p>
+          <div class="flex-1 text-right">
+            <p class="font-semibold text-gray-800">${t.to}</p>
+            <p class="text-xs text-gray-400">receives</p>
+          </div>
+          <button onclick="recordSettlement('${t.from}', '${t.to}', ${t.amount}, this)"
+                  class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition">
+            Record
+          </button>
+        </div>`).join('');
+    }
+
+    function calculateMinimalTxns() {
+      const total = settleMembers.reduce((s, m) => s + m.balance, 0);
+      const avg = total / settleMembers.length;
+      let debtors = [], creditors = [];
+      settleMembers.forEach(m => {
+        const diff = Math.round(m.balance - avg);
+        if (diff < 0) debtors.push({ ...m, owed: -diff });
+        else if (diff > 0) creditors.push({ ...m, owed: diff });
+      });
+      const txns = [];
+      let i = 0, j = 0;
+      while (i < debtors.length && j < creditors.length) {
+        const settle = Math.min(debtors[i].owed, creditors[j].owed);
+        if (settle > 0) txns.push({ from: debtors[i].name, to: creditors[j].name, amount: settle });
+        debtors[i].owed -= settle;
+        creditors[j].owed -= settle;
+        if (debtors[i].owed === 0) i++;
+        if (creditors[j].owed === 0) j++;
+      }
+      return txns;
+    }
+
+    function recordSettlement(from, to, amount, btn) {
+      btn.closest('.bg-white').classList.add('opacity-50', 'pointer-events-none');
+      btn.textContent = '✓ Done';
+      btn.className = 'bg-emerald-500 text-white text-xs font-bold px-4 py-2 rounded-xl';
+      const fromMember = settleMembers.find(m => m.name === from);
+      const toMember = settleMembers.find(m => m.name === to);
+      if (fromMember) fromMember.balance += amount;
+      if (toMember) toMember.balance -= amount;
+      showToast(`✅ ₹${amount.toLocaleString('en-IN')} from ${from} recorded`);
+    }
+
+    function markAllSettled() {
+      if (confirm('Mark all suggested settlements as completed?')) {
+        showToast('🎉 All settlements completed! Pool is balanced.');
+        setTimeout(renderSettle, 500);
+      }
+    }
+
+    // ============================================================
+    // TOAST
+    // ============================================================
+    function showToast(msg) {
+      document.querySelectorAll('.toast').forEach(t => t.remove());
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.textContent = msg;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 2700);
+    }
+
+    // ============================================================
+    // INITIALIZE
+    // ============================================================
+    document.addEventListener('DOMContentLoaded', () => {
+      const today = new Date().toISOString().split('T')[0];
+      ['date-moneyin','date-expense','date-loan','date-repayment','date-repay-loan'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = today;
+      });
+      updateLoanUI();
+      renderHomePreview();
+      renderSplitMembers();
+      console.log('%c✅ Stashd Final Version Loaded', 'color:#4f46e5; font-size:14px; font-weight:bold');
+    });
+  </script>
+</body>
+</html>
