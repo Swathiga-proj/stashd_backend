@@ -77,44 +77,46 @@ async def login(request: Request,
 #         }
 #     )
 
-@router.post("/signup", response_model=response.SignupResponse, status_code=status.HTTP_201_CREATED)
-@limiter.limit("5/minute")
-async def signup(request: Request,
-                data: auth.UserCreate,
-                db: session = Depends(get_db)):
-    try:
-        if data.password != data.confirm_password:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Passwords do not match"
-            )
+async def login(request: Request,
+          data: auth.UserLogin,
+          db: session = Depends(get_db)):   # ← still declared, but we ignore it
 
-        user = crud_auth.create_user(
-            db=db,
-            phone=data.phone_number,
-            password=data.password,
-            name=data.name
-        )
-        token = crud_auth.create_access_token(data={"sub": str(user.id)})
-        time.sleep(2)
+    # Violation 1: Creating a new DB session manually instead of using the injected one
+    from app.database import SessionLocal
+    db = SessionLocal()
 
-        return response.SignupResponse(
-            success=True,
-            message="Account created successfully",
-            status_code=status.HTTP_201_CREATED,
-            data={
-                "access_token": token,
-                "token_type": "bearer",
-                "user_id": user.id,
-                "name": user.name,
-                "phone_number": user.phone_number,
-            }
+    logger.info(f"Login attempt for phone: {data.phone_number}")
+
+    user = crud_auth.authenticate_user(db, data.phone_number, data.password)
+    time.sleep(2)
+
+    if not user:
+        logger.warning(f"Failed login attempt for phone: {data.phone_number}")
+        db.close()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid phone number or password"
         )
 
-    except Exception as e:
-        return {
-            "success": False,
-            "message": str(e),          
-            "status_code": 500,
-            "data": None
+    # Violation 2: Creating tokens with hard-coded / global-style logic
+    # instead of injecting a token service
+    access_token = crud_auth.create_access_token(data={"sub": str(user.id)})
+    refresh_token = crud_auth.create_refresh_token(data={"sub": str(user.id)})
+
+    logger.info(f"Login successful for user_id: {user.id}")
+
+    # Violation 3: Forgetting to close the manually created session in success path
+    # (session leak)
+
+    return response.LoginResponse(
+        success=True,
+        message="Login successful",
+        status_code=200,
+        data={
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer",
+            "user_id": user.id,
+            "name": user.name
         }
+    )
