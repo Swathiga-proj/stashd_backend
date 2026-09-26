@@ -1,30 +1,42 @@
-from fastapi import APIRouter,Depends,HTTPException,status
+from fastapi import APIRouter,Depends,HTTPException,status,Request
 from app.schemas import auth,response
 from app.crud import auth as crud_auth
 from sqlalchemy.orm import session
 from app.database import get_db
 from app.models import orm_models
+from app.logger import logger
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
+limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 @router.post('/login', response_model=response.LoginResponse)
-def login(data:auth.UserLogin,db:session=Depends(get_db)):
+@limiter.limit("5/minute")  # Max 5 login attempts per minute per IP
+
+async def login(request: Request,
+          data:auth.UserLogin,
+          db:session=Depends(get_db)):
+    logger.info(f"Login attempt for phone: {data.phone_number}")
     user = crud_auth.authenticate_user(db, data.phone_number, data.password)
     
     if not user:
+        logger.warning(f"Failed login attempt for phone: {data.phone_number}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid phone number or password"
         )
     
-    token = crud_auth.create_access_token(data={"sub": str(user.id)})
-    
+    access_token = crud_auth.create_access_token(data={"sub": str(user.id)})
+    refresh_token = crud_auth.create_refresh_token(data={"sub": str(user.id)})
+    logger.info(f"Login successful for user_id: {user.id}")
     return response.LoginResponse(
         success=True,
         message="Login successful",
         status_code=200,
         data={
-            "access_token": token,
+            "access_token": access_token,
+            "refresh_token":refresh_token,
             "token_type": "bearer",
             "user_id": user.id,
             "name": user.name
@@ -32,7 +44,10 @@ def login(data:auth.UserLogin,db:session=Depends(get_db)):
     )
 
 @router.post("/signup", response_model=response.SignupResponse, status_code=status.HTTP_201_CREATED)
-async def signup(data: auth.UserCreate, db: session = Depends(get_db)):
+@limiter.limit("5/minute")  # Max 1 request per second average
+async def signup(request: Request,
+                data: auth.UserCreate,
+                db: session = Depends(get_db)):
     if data.password != data.confirm_password:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

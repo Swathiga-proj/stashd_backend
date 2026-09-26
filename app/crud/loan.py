@@ -45,7 +45,7 @@ def get_all_loans_in_pool(db: Session, pool_id: int,limit: int = 10,
             "borrower_name": l.borrower_name,
             "lent_by_member": l.lent_by_member.nickname if l.lent_by_member else "Unknown",
             "outstanding": round(out, 2),
-            "is_settled": l.is_settled,
+            "is_settled": repaid >= l.amount,
             "note": l.note,
             "created_at": l.created_at
         })

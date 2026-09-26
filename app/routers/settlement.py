@@ -6,11 +6,16 @@ from app.database import get_db
 from app.crud.auth import get_current_user
 from app.models import orm_models
 from app.schemas import response
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from app.dependencies import get_member_in_pool
 
+limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/settle_up", tags=["Settlement"])
 
 
 @router.get("/settle", response_model=response.SettlementResponse)
+# @limiter.limit("60/minute")  # Max 1 request per second average
 async def get_loan_settlement(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db)

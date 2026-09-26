@@ -5,13 +5,17 @@ from app.schemas import response,loan
 from app.database import get_db
 from app.crud.auth import get_current_user
 from app.models import orm_models
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
+limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/transactions",tags=["Summary"])
 
 
 
 
 @router.post("/loans_list", response_model=response.LoanListResponse)
+# @limiter.limit("60/minute")
 async def get_all_loans(
     data: loan.LoanListItem,
     current_user=Depends(get_current_user),

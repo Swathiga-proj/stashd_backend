@@ -15,9 +15,4 @@ class SplitExpenseCreate(BaseModel):
     category: str
     note: Optional[str] = None
     split_details: List[SplitDetail]
-
-class SplitExpenseResponse(BaseModel):
-    success: bool = True
-    message: str = "Split expense recorded successfully"
-    status_code: int = 201
-    data: dict
+    pool_id: int

@@ -5,7 +5,7 @@ from datetime import timedelta,datetime,UTC
 from typing import Optional
 from app.database import get_db
 from app.crud import auth
-
+from app.logger import logger
 
 def create_pool(pool_name: str,created_by_user_id: int,db:Session=Depends(get_db)):
     
@@ -42,6 +42,7 @@ def add_member_to_pool(pool_id:int,
     # Check if pool exists
     pool = db.query(orm_models.Pool).filter(orm_models.Pool.id == pool_id).first()
     if not pool:
+        logger.error(f"pool not found{pool_id}")
         raise HTTPException(status_code=404, detail="Pool not found")
     # Check if phone number already registered
     existing_user = db.query(orm_models.User).filter(orm_models.User.phone_number == phone).first()
@@ -60,18 +61,22 @@ def add_member_to_pool(pool_id:int,
         db.add(user)
         db.commit()
         db.refresh(user)
+        logger.info("new user created")
     else:
+        logger.info("existing user")
         user = existing_user
 
     # Create member
     create_member = orm_models.Member(nickname=name,
                                   color="#14b8a6",
                                   role=role,
-                                  pool_id=pool_id)
+                                  pool_id=pool_id,
+                                  user_id=user.id)
     
     db.add(create_member)
     db.commit()
     db.refresh(create_member)
+    logger.info("Member created")
     return create_member
 
 def get_pool_members(
@@ -91,10 +96,7 @@ def get_pool_members(
 
     total = query.count()
     members = query.offset(skip).limit(limit).all()
-    print("total:", total)
-    print("skip:", skip)
-    print("limit:", limit)
-    print("members:", members)
+    logger.info(f"total members={total}")
     member_list = []
     for member in members:
         member_list.append({

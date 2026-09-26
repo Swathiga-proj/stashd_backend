@@ -89,18 +89,68 @@ def create_loan_given(db: Session, pool_id: int, data: dict):
     )
     db.add(loan)
     db.commit()
-    return txn
+    return {
+        "transaction_id": txn.id,
+        "loan_id": loan.id,
+        "amount": loan.amount,
+        "borrower_name": loan.borrower_name,
+        "status":txn.status
+    }
 
 
 def create_repayment(db: Session, pool_id: int, data: dict):
-    return create_transaction(
+    loan_id = data.get('loan_id')
+
+    loan = db.query(orm_models.Loan).filter(orm_models.Loan.id == loan_id).first()
+    if loan is None:
+        raise HTTPException(status_code=404, detail="Loan not found")
+        # 1. Create the Repayment record
+    repayment = orm_models.Repayment(
+        amount=data['amount'],
+        loan_id=loan_id,
+        payment_method=data.get('payment_method'),
+        note=data.get('note')
+    )
+    db.add(repayment)
+    db.flush()  # writes the row + makes it visible to the sum query below, without committing yet
+
+    # 2. Recompute total repaid for this loan and update is_settled
+    total_repaid = db.query(func.sum(orm_models.Repayment.amount)).filter(
+        orm_models.Repayment.loan_id == loan_id
+    ).scalar() or 0
+
+    loan.is_settled = total_repaid >= loan.amount
+    db.add(loan)
+
+
+        # 1. Create the Repayment record (tracks loan-specific repayment info)
+    repayment = orm_models.Repayment(
+        amount=data['amount'],
+        loan_id=data.get('loan_id'),
+        payment_method=data.get('payment_method'),
+        note=data.get('note')
+    )
+    db.add(repayment)
+    db.commit()
+    db.refresh(repayment)
+
+    # 2. Create the Transaction record (ledger entry, links back via reference_id)
+    txn_result = create_transaction(
         db=db,
         pool_id=pool_id,
         member_id=data.get('belongs_to_member_id'),
         amount=data['amount'],
         transaction_type="repayment",
-        note=data.get('note')
+        note=data.get('note'),
+        reference_type="repayment",
+        reference_id=repayment.id
     )
+    # 3. Return combined info 
+    return {
+        "transaction_id": txn_result.id,
+        "loan_id": repayment.loan_id,
+        "status": txn_result.status
+    }
 
 def get_transaction_list(
     db: Session,

@@ -66,6 +66,7 @@ class Transaction(Base):
     # Split support
     is_split = Column(Boolean, default=False)
     split_details = Column(JSON, nullable=True)
+    split_group_id = Column(String, nullable=True)
 
     # Approval Workflow
     status = Column(String, default="approved")         # pending, approved, rejected

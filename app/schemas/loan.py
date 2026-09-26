@@ -18,3 +18,4 @@ from datetime import datetime
 class LoanListItem(BaseModel):
     skip: int
     limit: int
+    pool_id:int

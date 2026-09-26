@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
-from ..models import Transaction, Member
+from app.models.orm_models import Transaction, Member
 from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime, UTC
 import uuid

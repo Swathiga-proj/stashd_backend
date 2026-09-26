@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from typing import List, Optional, Any
 from datetime import datetime
-from .member import MemberCreate
+from .pools import MemberCreate
 
 # ====================== BASE RESPONSE ======================
 class BaseResponse(BaseModel):
@@ -101,3 +101,10 @@ class ErrorResponse(BaseModel):
     message: str
     status_code: int
     error: Optional[str] = None
+
+
+class SplitExpenseResponse(BaseModel):
+    success: bool = True
+    message: str = "Split expense recorded successfully"
+    status_code: int = 201
+    data: dict
