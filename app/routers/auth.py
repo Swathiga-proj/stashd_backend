@@ -7,7 +7,7 @@ from app.models import orm_models
 from app.logger import logger
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-
+import time
 limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -19,7 +19,7 @@ async def login(request: Request,
           db:session=Depends(get_db)):
     logger.info(f"Login attempt for phone: {data.phone_number}")
     user = crud_auth.authenticate_user(db, data.phone_number, data.password)
-    
+    time.sleep(2)
     if not user:
         logger.warning(f"Failed login attempt for phone: {data.phone_number}")
         raise HTTPException(
