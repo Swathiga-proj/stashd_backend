@@ -186,9 +186,15 @@ async def get_dashboard(
 
     summary = curd_trn.get_dashboard_summary(db, member.pool_id)
 
-    return response.DashboardResponse(
-        success=True,
-        message="Dashboard fetched successfully",
-        status_code=200,
-        data=summary
-    )
+    # return response.DashboardResponse(
+    #     success=True,
+    #     message="Dashboard fetched successfully",
+    #     status_code=200,
+    #     data=summary
+    # )
+    return {
+    "success": True,
+    "message": "Dashboard fetched successfully",
+    "status_code": 200,
+    "data": summary
+}
