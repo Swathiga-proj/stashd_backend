@@ -59,16 +59,26 @@ async def add_member(
         role=data.role
     )
     logger.info(f"new member added to pool:{new_member}")
-    return response.MemberAddResponse(
-        success=True,
-        message="Member added successfully",
-        status_code=status.HTTP_201_CREATED,
-        data={
-            "member_id": new_member.id,
-            "nickname": new_member.nickname,
-            "role": new_member.role
-        }
-    )
+    # return response.MemberAddResponse(
+    #     success=True,
+    #     message="Member added successfully",
+    #     status_code=status.HTTP_201_CREATED,
+    #     data={
+    #         "member_id": new_member.id,
+    #         "nickname": new_member.nickname,
+    #         "role": new_member.role
+    #     }
+    # )
+    return {
+    "success": True,
+    "message": "Member added successfully",
+    "status_code": status.HTTP_201_CREATED,
+    "data": {
+        "member_id": new_member.id,
+        "nickname": new_member.nickname,
+        "role": new_member.role
+    }
+}
 
 @router.post("/members", response_model=response.MembersListResponse)
 # @limiter.limit("60/minute")
