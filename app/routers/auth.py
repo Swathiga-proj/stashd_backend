@@ -43,36 +43,78 @@ async def login(request: Request,
         }
     )
 
+# @router.post("/signup", response_model=response.SignupResponse, status_code=status.HTTP_201_CREATED)
+# @limiter.limit("5/minute")  # Max 1 request per second average
+# async def signup(request: Request,
+#                 data: auth.UserCreate,
+#                 db: session = Depends(get_db)):
+#     if data.password != data.confirm_password:
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST,
+#             detail="Passwords do not match"
+#         )
+#     # Call the crud function
+#     user = crud_auth.create_user(
+#         db=db,
+#         phone=data.phone_number,
+#         password=data.password,
+#         name=data.name
+#     )
+#     token = crud_auth.create_access_token(data={"sub": str(user.id)})
+#     time.sleep(2)
+
+#     return response.SignupResponse(
+#         success=True,
+#         message="Account created successfully",
+#         status_code=status.HTTP_201_CREATED,
+#         data={
+#             "access_token": token,
+#             "token_type": "bearer",
+#             "user_id": user.id,
+#             "name": user.name,
+#             "phone_number": user.phone_number,
+            
+#         }
+#     )
+
 @router.post("/signup", response_model=response.SignupResponse, status_code=status.HTTP_201_CREATED)
-@limiter.limit("5/minute")  # Max 1 request per second average
+@limiter.limit("5/minute")
 async def signup(request: Request,
                 data: auth.UserCreate,
                 db: session = Depends(get_db)):
-    if data.password != data.confirm_password:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Passwords do not match"
-        )
-    # Call the crud function
-    user = crud_auth.create_user(
-        db=db,
-        phone=data.phone_number,
-        password=data.password,
-        name=data.name
-    )
-    token = crud_auth.create_access_token(data={"sub": str(user.id)})
-    time.sleep(2)
+    try:
+        if data.password != data.confirm_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Passwords do not match"
+            )
 
-    return response.SignupResponse(
-        success=True,
-        message="Account created successfully",
-        status_code=status.HTTP_201_CREATED,
-        data={
-            "access_token": token,
-            "token_type": "bearer",
-            "user_id": user.id,
-            "name": user.name,
-            "phone_number": user.phone_number,
-            
+        user = crud_auth.create_user(
+            db=db,
+            phone=data.phone_number,
+            password=data.password,
+            name=data.name
+        )
+        token = crud_auth.create_access_token(data={"sub": str(user.id)})
+        time.sleep(2)
+
+        return response.SignupResponse(
+            success=True,
+            message="Account created successfully",
+            status_code=status.HTTP_201_CREATED,
+            data={
+                "access_token": token,
+                "token_type": "bearer",
+                "user_id": user.id,
+                "name": user.name,
+                "phone_number": user.phone_number,
+            }
+        )
+
+    except Exception as e:
+        return {
+            "success": False,
+            "message": str(e),          
+            "status_code": 500,
+            "data": None
         }
-    )
