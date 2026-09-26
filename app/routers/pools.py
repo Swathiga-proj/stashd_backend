@@ -24,18 +24,25 @@ async def create_pool(
 ):
     pool = crud_mem.create_pool(data.name, current_user.id,db)
     logger.info(f"pool created:{pool.id}")
-    import time
-    time.sleep(2)
-    return response.PoolCreateResponse(
-        success=True,
-        message="Pool created successfully",
-        status_code=status.HTTP_201_CREATED,
-        data={
-            "pool_id": pool.id,
-            "name": pool.name
-        }
-    )
-
+    
+    # return response.PoolCreateResponse(
+    #     success=True,
+    #     message="Pool created successfully",
+    #     status_code=status.HTTP_201_CREATED,
+    #     data={
+    #         "pool_id": pool.id,
+    #         "name": pool.name
+    #     }
+    # )
+    return {
+    "success": True,
+    "message": "Pool created successfully",
+    "status_code": status.HTTP_201_CREATED,
+    "data": {
+        "pool_id": pool.id,
+        "name": pool.name
+    }
+}
 
 @router.post("/add_member", response_model=response.MemberAddResponse, status_code=201)
 # @limiter.limit("60/minute")
