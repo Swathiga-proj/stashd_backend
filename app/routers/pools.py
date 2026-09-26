@@ -24,6 +24,8 @@ async def create_pool(
 ):
     pool = crud_mem.create_pool(data.name, current_user.id,db)
     logger.info(f"pool created:{pool.id}")
+    import time
+    time.sleep(2)
     return response.PoolCreateResponse(
         success=True,
         message="Pool created successfully",
