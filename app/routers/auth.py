@@ -61,7 +61,7 @@ async def signup(request: Request,
         name=data.name
     )
     token = crud_auth.create_access_token(data={"sub": str(user.id)})
-
+    time.sleep(2)
 
     return response.SignupResponse(
         success=True,
