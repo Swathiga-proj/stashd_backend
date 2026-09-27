@@ -15,7 +15,7 @@ router = APIRouter(prefix="/pools", tags=["Pools"])
 
 
 @router.post("/create_pool", response_model=response.PoolCreateResponse, status_code=status.HTTP_201_CREATED)
-# @limiter.limit("60/minute")
+@limiter.limit("8/minute")
 async def create_pool(
     data: pools.PoolCreate,
 
@@ -59,6 +59,7 @@ async def add_member(
         role=data.role
     )
     logger.info(f"new member added to pool:{new_member}")
+    
     return response.MemberAddResponse(
         success=True,
         message="Member added successfully",

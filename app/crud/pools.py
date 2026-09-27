@@ -45,6 +45,7 @@ def add_member_to_pool(
     pool = db.query(orm_models.Pool).filter(orm_models.Pool.id == pool_id).first()
     if not pool:
         logger.error(f"Pool not found: pool_id={pool_id}")
+        logger.error(f"pool not found{pool_id}")
         raise HTTPException(status_code=404, detail="Pool not found")
 
     # Check if phone number already registered
