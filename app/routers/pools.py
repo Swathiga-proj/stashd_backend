@@ -34,7 +34,6 @@ async def create_pool(
             "name": pool.name
         }
     )
-    
 
 @router.post("/add_member", response_model=response.MemberAddResponse, status_code=201)
 # @limiter.limit("60/minute")
