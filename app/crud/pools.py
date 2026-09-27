@@ -30,24 +30,27 @@ def create_pool(pool_name: str,created_by_user_id: int,db:Session=Depends(get_db
 
     return pool
 
-def add_member_to_pool(pool_id:int,
-                       name:str,
-                       phone:str,
-                       color:str,
-                       password:str,
-                       role:str,
-                       db:Session=get_db):
-    """Add new member to existing pool"""
-    
+def add_member_to_pool(
+    pool_id: int,
+    name: str,
+    phone: str,
+    color: str,
+    password: str,
+    role: str,
+    db: Session = Depends(get_db)          # Fixed: proper dependency injection
+):
+    """Add a new member to an existing pool."""
+
     # Check if pool exists
     pool = db.query(orm_models.Pool).filter(orm_models.Pool.id == pool_id).first()
     if not pool:
-        logger.error(f"pool not found{pool_id}")
+        logger.error(f"Pool not found: pool_id={pool_id}")
         raise HTTPException(status_code=404, detail="Pool not found")
-    # Check if phone number already registered
-    existing_user = db.query(orm_models.User).filter(orm_models.User.phone_number == phone).first()
 
-    user = None
+    # Check if phone number already registered
+    existing_user = db.query(orm_models.User).filter(
+        orm_models.User.phone_number == phone
+    ).first()
 
     if not existing_user:
         # Create new user
@@ -61,23 +64,30 @@ def add_member_to_pool(pool_id:int,
         db.add(user)
         db.commit()
         db.refresh(user)
-        logger.info("new user created")
+        logger.info(f"New user created: user_id={user.id}")
     else:
-        logger.info("existing user")
         user = existing_user
+        logger.info(f"Using existing user: user_id={user.id}")
 
-    # Create member
-    create_member = orm_models.Member(nickname=name,
-                                  color="#14b8a6",
-                                  role=role,
-                                  pool_id=pool_id,
-                                  user_id=user.id)
-    
-    db.add(create_member)
+    # Create member – now uses the provided color instead of hard-coding
+    member = orm_models.Member(
+        nickname=name,
+        color=color,                       # Fixed: use the parameter
+        role=role,
+        pool_id=pool_id,
+        user_id=user.id
+    )
+
+    db.add(member)
     db.commit()
-    db.refresh(create_member)
-    logger.info("Member created")
-    return create_member
+    db.refresh(member)
+    logger.info(f"Member created: member_id={member.id}, pool_id={pool_id}")
+
+    return member
+
+
+
+from sqlalchemy.orm import joinedload
 
 def get_pool_members(
     db: Session, 
@@ -86,30 +96,35 @@ def get_pool_members(
     skip: int = 0
 ):
     """
-    Get members in a pool with pagination
+    Get members in a pool with pagination.
+    Uses joinedload to avoid N+1 queries.
     """
-    query = db.query(orm_models.Member).filter(
-        orm_models.Member.pool_id == pool_id
-    ).order_by(
-        orm_models.Member.id,   # Admin first
+    query = (
+        db.query(orm_models.Member)
+        .options(joinedload(orm_models.Member.user))   
+        .filter(orm_models.Member.pool_id == pool_id)
+        .order_by(orm_models.Member.id)
     )
 
     total = query.count()
     members = query.offset(skip).limit(limit).all()
-    logger.info(f"total members={total}")
-    member_list = []
-    for member in members:
-        member_list.append({
+
+    logger.info(f"Fetched {len(members)} members out of total={total} for pool_id={pool_id}")
+
+    member_list = [
+        {
             "id": member.id,
             "nickname": member.nickname,
             "phone_number": member.user.phone_number if member.user else None,
             "role": member.role,
             "color": member.color,
             "joined_at": member.created_at
-        })
+        }
+        for member in members
+    ]
 
     return {
-        "members": member_list[:limit],
+        "members": member_list,
         "total": total,
         "has_more": (skip + limit) < total
     }

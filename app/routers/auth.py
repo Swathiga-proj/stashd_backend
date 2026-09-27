@@ -7,7 +7,7 @@ from app.models import orm_models
 from app.logger import logger
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-
+import time
 limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -61,7 +61,7 @@ async def signup(request: Request,
         name=data.name
     )
     token = crud_auth.create_access_token(data={"sub": str(user.id)})
-
+    
 
     return response.SignupResponse(
         success=True,
@@ -76,3 +76,4 @@ async def signup(request: Request,
             
         }
     )
+
