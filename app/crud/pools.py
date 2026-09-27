@@ -30,78 +30,27 @@ def create_pool(pool_name: str,created_by_user_id: int,db:Session=Depends(get_db
 
     return pool
 
-# def add_member_to_pool(pool_id:int,
-#                        name:str,
-#                        phone:str,
-#                        color:str,
-#                        password:str,
-#                        role:str,
-#                        db:Session=get_db):
-#     """Add new member to existing pool"""
-    
-#     # Check if pool exists
-#     pool = db.query(orm_models.Pool).filter(orm_models.Pool.id == pool_id).first()
-#     if not pool:
-#         logger.error(f"pool not found{pool_id}")
-#         raise HTTPException(status_code=404, detail="Pool not found")
-#     # Check if phone number already registered
-#     existing_user = db.query(orm_models.User).filter(orm_models.User.phone_number == phone).first()
-
-#     user = None
-
-#     if not existing_user:
-#         # Create new user
-#         hashed_password = auth.get_password_hash(password)
-#         user = orm_models.User(
-#             name=name,
-#             phone_number=phone,
-#             password_hashed=hashed_password,
-#             is_verified=False
-#         )
-#         db.add(user)
-#         db.commit()
-#         db.refresh(user)
-#         logger.info("new user created")
-#     else:
-#         logger.info("existing user")
-#         user = existing_user
-
-#     # Create member
-#     create_member = orm_models.Member(nickname=name,
-#                                   color="#14b8a6",
-#                                   role=role,
-#                                   pool_id=pool_id,
-#                                   user_id=user.id)
-    
-#     db.add(create_member)
-#     db.commit()
-#     db.refresh(create_member)
-#     logger.info("Member created")
-#     return create_member
-
-def add_member_to_pool(pool_id: int,
-                       name: str,
-                       phone: str,
-                       color: str,
-                       password: str,
-                       role: str,
-                       db: Session = get_db):          # Violation 1: using get_db as default instead of Depends(get_db)
-
-    """Add new member to existing pool"""
-
-    # Violation 2: Hard-coded configuration / magic value
-    DEFAULT_COLOR = "#14b8a6"
+def add_member_to_pool(
+    pool_id: int,
+    name: str,
+    phone: str,
+    color: str,
+    password: str,
+    role: str,
+    db: Session = Depends(get_db)          # Fixed: proper dependency injection
+):
+    """Add a new member to an existing pool."""
 
     # Check if pool exists
     pool = db.query(orm_models.Pool).filter(orm_models.Pool.id == pool_id).first()
     if not pool:
-        logger.error(f"pool not found{pool_id}")       # Violation 3: poor logging format
+        logger.error(f"Pool not found: pool_id={pool_id}")
         raise HTTPException(status_code=404, detail="Pool not found")
 
     # Check if phone number already registered
-    existing_user = db.query(orm_models.User).filter(orm_models.User.phone_number == phone).first()
-
-    user = None
+    existing_user = db.query(orm_models.User).filter(
+        orm_models.User.phone_number == phone
+    ).first()
 
     if not existing_user:
         # Create new user
@@ -115,28 +64,28 @@ def add_member_to_pool(pool_id: int,
         db.add(user)
         db.commit()
         db.refresh(user)
-        logger.info("new user created")
+        logger.info(f"New user created: user_id={user.id}")
     else:
-        logger.info("existing user")
         user = existing_user
+        logger.info(f"Using existing user: user_id={user.id}")
 
-    # Violation 4: Ignoring the incoming `color` parameter and hard-coding the value
-    # Violation 5: Business logic + DB operations mixed without clear service layer
-    create_member = orm_models.Member(
+    # Create member – now uses the provided color instead of hard-coding
+    member = orm_models.Member(
         nickname=name,
-        color=DEFAULT_COLOR,        # hard-coded instead of using the `color` argument
+        color=color,                       # Fixed: use the parameter
         role=role,
         pool_id=pool_id,
         user_id=user.id
     )
 
-    db.add(create_member)
+    db.add(member)
     db.commit()
-    db.refresh(create_member)
-    logger.info("Member created")
+    db.refresh(member)
+    logger.info(f"Member created: member_id={member.id}, pool_id={pool_id}")
 
-    # Violation 6: Returning raw ORM model instead of a Pydantic schema / response model
-    return create_member
+    return member
+
+
 
 def get_pool_members(
     db: Session, 
