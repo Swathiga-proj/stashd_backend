@@ -87,6 +87,8 @@ def add_member_to_pool(
 
 
 
+from sqlalchemy.orm import joinedload
+
 def get_pool_members(
     db: Session, 
     pool_id: int,
@@ -94,30 +96,35 @@ def get_pool_members(
     skip: int = 0
 ):
     """
-    Get members in a pool with pagination
+    Get members in a pool with pagination.
+    Uses joinedload to avoid N+1 queries.
     """
-    query = db.query(orm_models.Member).filter(
-        orm_models.Member.pool_id == pool_id
-    ).order_by(
-        orm_models.Member.id,   # Admin first
+    query = (
+        db.query(orm_models.Member)
+        .options(joinedload(orm_models.Member.user))   
+        .filter(orm_models.Member.pool_id == pool_id)
+        .order_by(orm_models.Member.id)
     )
 
     total = query.count()
     members = query.offset(skip).limit(limit).all()
-    logger.info(f"total members={total}")
-    member_list = []
-    for member in members:
-        member_list.append({
+
+    logger.info(f"Fetched {len(members)} members out of total={total} for pool_id={pool_id}")
+
+    member_list = [
+        {
             "id": member.id,
             "nickname": member.nickname,
             "phone_number": member.user.phone_number if member.user else None,
             "role": member.role,
             "color": member.color,
             "joined_at": member.created_at
-        })
+        }
+        for member in members
+    ]
 
     return {
-        "members": member_list[:limit],
+        "members": member_list,
         "total": total,
         "has_more": (skip + limit) < total
     }

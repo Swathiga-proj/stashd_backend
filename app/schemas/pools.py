@@ -17,6 +17,7 @@ class PoolCreate(BaseModel):
 # ====================== MEMBER ======================
 class MemberCreate(BaseModel):
     pool_id: int 
+    color:str
     name: str 
     phone_number: str 
     password: str 
