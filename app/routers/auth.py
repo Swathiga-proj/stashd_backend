@@ -19,7 +19,7 @@ async def login(request: Request,
           db:session=Depends(get_db)):
     logger.info(f"Login attempt for phone: {data.phone_number}")
     user = crud_auth.authenticate_user(db, data.phone_number, data.password)
-    
+    time.sleep(2)
     if not user:
         logger.warning(f"Failed login attempt for phone: {data.phone_number}")
         raise HTTPException(
